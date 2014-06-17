@@ -1,0 +1,76 @@
+name "pose_estimation"
+# version "0.1"
+
+using_library "pose_estimation"
+
+import_types_from "base"
+import_types_from "pose_estimation/PoseEstimatorConfig.hpp"
+import_types_from "pose_estimationTypes.hpp"
+
+task_context "BaseTask" do
+    needs_configuration
+   
+    #******************************
+    #***** Filter Properties ******
+    #******************************
+    property( "filter_type", "/pose_estimation/FilterType", :EKF )
+    
+    property( "max_time_delta", "double", 2.0 )
+    
+    
+    #******************************
+    #******* Output Ports *********
+    #******************************
+    output_port( "pose_samples", "/base/samples/RigidBodyState" ).
+        doc "timestamped samples of the current estimated pose of the robot."
+
+    #******************************
+    #******** Task States ********* 
+    #******************************
+    runtime_states :MISSING_TRANSFORMATION
+
+    periodic 0.1
+end
+
+task_context "UWPoseEstimator" do
+    subclasses "BaseTask"
+    needs_configuration
+
+    #******************************
+    #******* Input Ports **********
+    #******************************
+    input_port( "orientation_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "orientation samples from an IMU and or a FOG, containing the orientation and the angular velocity."
+
+    input_port( "depth_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "depth samples from a pressure sensor, containing the absolute z-position in world coordinates."
+
+    input_port( "velocity_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "velocity samples from a DVL, containing the velocity."
+
+    input_port( "position_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "position samples from a LBL or USBL, containing the absolute position in world coordinates."
+
+
+    #******************************
+    #** Aggregator Parameters ***** 
+    #******************************
+    transformer do
+        transformation("imu", "body")
+        transformation("pressure_sensor", "body")
+        transformation("dvl", "body")
+        transformation("lbl", "body")
+        
+	align_port("orientation_samples", 0.01)
+	align_port("depth_samples", 0.01)
+	align_port("velocity_samples", 0.01)
+	align_port("position_samples", 0.01)
+	max_latency(0.1)
+    end
+
+    periodic 0.1
+end

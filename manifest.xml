@@ -1,0 +1,14 @@
+<package>
+  <description brief="Filter based non-linear robot pose estimation using an arbitrary number of state measurements">
+  
+  </description>
+  <author>Sascha Arnold/sascha.arnold@dfki.de</author>
+  <license></license>
+  <url>http://</url>
+  <logo>http://</logo>
+  <depend package="base/cmake" />
+  <depend package="drivers/orogen/aggregator" />
+  <depend package="slam/pose_estimation"/>
+
+  <tags>needs_opt</tags>
+</package>
