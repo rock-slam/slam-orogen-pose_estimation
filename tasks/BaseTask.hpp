@@ -37,6 +37,12 @@ namespace pose_estimation {
 	
 	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config, const transformer::Transformation& sensor2body_transformer);
 	
+	/** Updates and writes the current robot pose and task state.
+	 * The seperation in this method ensures that this is done at the end of the update hook
+	 * of a derivated task. 
+	 */
+	void updateState();
+	
 
     public:
         /** TaskContext constructor for BaseTask

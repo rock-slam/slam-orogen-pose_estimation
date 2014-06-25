@@ -40,6 +40,23 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
 	RTT::log(RTT::Error) << "Failed to add measurement from " << sensor2body_transformer.getSourceFrame() << "." << RTT::endlog();
 }
 
+void BaseTask::updateState()
+{
+    // integrate measurements
+    pose_estimator->integrateMeasurements();
+    
+    // write estimated body state
+    base::samples::RigidBodyState body_state = pose_estimator->getEstimatedState();
+    _pose_samples.write(body_state);
+    
+    // write task state if it has changed
+    if(last_state != new_state)
+    {
+        last_state = new_state;
+        state(new_state);
+    }
+}
+
 
 /// The following lines are template definitions for the various state machine
 // hooks defined by Orocos::RTT. See BaseTask.hpp for more detailed
@@ -82,22 +99,8 @@ bool BaseTask::startHook()
 }
 void BaseTask::updateHook()
 {
-    BaseTaskBase::updateHook();
     new_state = RUNNING;
-    
-    // integrate measurements
-    pose_estimator->integrateMeasurements();
-    
-    // write estimated body state
-    base::samples::RigidBodyState body_state = pose_estimator->getEstimatedState();
-    _pose_samples.write(body_state);
-    
-    // write task state if it has changed
-    if(last_state != new_state)
-    {
-        last_state = new_state;
-        state(new_state);
-    }
+    BaseTaskBase::updateHook();
 }
 void BaseTask::errorHook()
 {

@@ -74,6 +74,9 @@ bool UWPoseEstimator::startHook()
 void UWPoseEstimator::updateHook()
 {
     UWPoseEstimatorBase::updateHook();
+    
+    // update and write new state
+    updateState();
 }
 void UWPoseEstimator::errorHook()
 {
