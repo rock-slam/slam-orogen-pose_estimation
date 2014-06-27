@@ -75,5 +75,40 @@ task_context "UWPoseEstimator" do
 	max_latency(0.1)
     end
 
-    periodic 0.1
+    periodic 0.01
+end
+
+task_context "VehiclePoseEstimator" do
+    subclasses "BaseTask"
+    needs_configuration
+
+    #******************************
+    #******* Input Ports **********
+    #******************************
+    input_port( "orientation_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "orientation samples from an IMU and or a FOG, containing the orientation and the angular velocity."
+
+    input_port( "velocity_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "velocity samples from the odometry, containing the velocity."
+
+    input_port( "position_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "position samples from a slam component, containing the absolute position in world coordinates."
+
+
+    #******************************
+    #** Aggregator Parameters ***** 
+    #******************************
+    transformer do
+        transformation("imu", "body")
+        
+	align_port("orientation_samples", 0.01)
+	align_port("velocity_samples", 0.01)
+	align_port("position_samples", 0.01)
+	max_latency(0.1)
+    end
+
+    periodic 0.01
 end

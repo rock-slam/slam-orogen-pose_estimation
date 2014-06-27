@@ -35,9 +35,14 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
     transformed_rbs.velocity = sensor2body.rotation() * transformed_rbs.velocity;
     transformed_rbs.angular_velocity = sensor2body.rotation() * transformed_rbs.angular_velocity;
     
+    handleMeasurement(ts, transformed_rbs, config);
+}
+
+void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& measurement, const MeasurementConfig& config)
+{
     // enqueue new measurement
-    if(!pose_estimator->enqueueMeasurement(transformed_rbs, config.measurement_mask.cast<unsigned>()))
-	RTT::log(RTT::Error) << "Failed to add measurement from " << sensor2body_transformer.getSourceFrame() << "." << RTT::endlog();
+    if(!pose_estimator->enqueueMeasurement(measurement, config.measurement_mask.cast<unsigned>()))
+	RTT::log(RTT::Error) << "Failed to add measurement from " << measurement.sourceFrame << "." << RTT::endlog();
 }
 
 void BaseTask::updateState()

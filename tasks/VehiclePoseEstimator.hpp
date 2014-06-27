@@ -1,18 +1,13 @@
 /* Generated from orogen/lib/orogen/templates/tasks/Task.hpp */
 
-#ifndef POSE_ESTIMATION_BASETASK_TASK_HPP
-#define POSE_ESTIMATION_BASETASK_TASK_HPP
+#ifndef POSE_ESTIMATION_VEHICLEPOSEESTIMATOR_TASK_HPP
+#define POSE_ESTIMATION_VEHICLEPOSEESTIMATOR_TASK_HPP
 
-#include "pose_estimation/BaseTaskBase.hpp"
-
-#include <boost/shared_ptr.hpp>
-#include <pose_estimation/PoseEstimator.hpp>
-#include <pose_estimation/Measurement.hpp>
-#include <transformer/Transformer.hpp>
+#include "pose_estimation/VehiclePoseEstimatorBase.hpp"
 
 namespace pose_estimation {
 
-    /*! \class BaseTask 
+    /*! \class VehiclePoseEstimator 
      * \brief The task context provides and requires services. It uses an ExecutionEngine to perform its functions.
      * Essential interfaces are operations, data flow ports and properties. These interfaces have been defined using the oroGen specification.
      * In order to modify the interfaces you should (re)use oroGen and rely on the associated workflow.
@@ -21,48 +16,39 @@ namespace pose_estimation {
      * The name of a TaskContext is primarily defined via:
      \verbatim
      deployment 'deployment_name'
-         task('custom_task_name','pose_estimation::BaseTask')
+         task('custom_task_name','pose_estimation::VehiclePoseEstimator')
      end
      \endverbatim
      *  It can be dynamically adapted when the deployment is called with a prefix argument. 
      */
-    class BaseTask : public BaseTaskBase
+    class VehiclePoseEstimator : public VehiclePoseEstimatorBase
     {
-	friend class BaseTaskBase;
+	friend class VehiclePoseEstimatorBase;
     protected:
-	States last_state;
-	States new_state;
-	std::string source_frame;
-	boost::shared_ptr<PoseEstimator> pose_estimator;
-	
-	
-	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config, const transformer::Transformation& sensor2body_transformer);
-	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config);
-	
-	/** Updates and writes the current robot pose and task state.
-	 * The seperation in this method ensures that this is done at the end of the update hook
-	 * of a derivated task. 
-	 */
-	void updateState();
-	
+
+        virtual void orientation_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &orientation_samples_sample);
+
+        virtual void position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &position_samples_sample);
+
+        virtual void velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &velocity_samples_sample);
 
     public:
-        /** TaskContext constructor for BaseTask
+        /** TaskContext constructor for VehiclePoseEstimator
          * \param name Name of the task. This name needs to be unique to make it identifiable via nameservices.
          * \param initial_state The initial TaskState of the TaskContext. Default is Stopped state.
          */
-        BaseTask(std::string const& name = "pose_estimation::BaseTask");
+        VehiclePoseEstimator(std::string const& name = "pose_estimation::VehiclePoseEstimator");
 
-        /** TaskContext constructor for BaseTask 
+        /** TaskContext constructor for VehiclePoseEstimator 
          * \param name Name of the task. This name needs to be unique to make it identifiable for nameservices. 
          * \param engine The RTT Execution engine to be used for this task, which serialises the execution of all commands, programs, state machines and incoming events for a task. 
          * 
          */
-        BaseTask(std::string const& name, RTT::ExecutionEngine* engine);
+        VehiclePoseEstimator(std::string const& name, RTT::ExecutionEngine* engine);
 
-        /** Default deconstructor of BaseTask
+        /** Default deconstructor of VehiclePoseEstimator
          */
-	~BaseTask();
+	~VehiclePoseEstimator();
 
         /** This hook is called by Orocos when the state machine transitions
          * from PreOperational to Stopped. If it returns false, then the
