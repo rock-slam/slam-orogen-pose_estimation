@@ -32,6 +32,7 @@ namespace pose_estimation {
     protected:
 	States last_state;
 	States new_state;
+	std::string source_frame;
 	boost::shared_ptr<PoseEstimator> pose_estimator;
 	
 	

@@ -47,6 +47,8 @@ void BaseTask::updateState()
     
     // write estimated body state
     base::samples::RigidBodyState body_state = pose_estimator->getEstimatedState();
+    body_state.targetFrame = _target_frame.get();
+    body_state.sourceFrame = source_frame;
     _pose_samples.write(body_state);
     
     // write task state if it has changed
@@ -69,10 +71,12 @@ bool BaseTask::configureHook()
     
     last_state = PRE_OPERATIONAL;
     new_state = RUNNING;
+    // the source frame should be overwritten in the derived task
+    source_frame = "body";
     
     pose_estimator.reset(new PoseEstimator(_filter_type.get()));
     
-    base::samples::RigidBodyState init_state;
+    base::samples::RigidBodyState init_state(false);
     init_state.initUnknown();
     init_state.cov_position = 1.0 * base::Matrix3d::Identity();
     init_state.cov_orientation = 1.0 * base::Matrix3d::Identity();

@@ -63,6 +63,9 @@ bool UWPoseEstimator::configureHook()
 {
     if (! UWPoseEstimatorBase::configureHook())
         return false;
+    
+    source_frame = _body_frame.get();
+    
     return true;
 }
 bool UWPoseEstimator::startHook()

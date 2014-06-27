@@ -18,6 +18,9 @@ task_context "BaseTask" do
     property( "max_time_delta", "double", 2.0 )
     
     
+    property( 'target_frame', '/std/string', 'world' ).
+    	doc "The target frame in the generated poses. The source frame is the body frame (as declared in the transformer configuration)"
+    
     #******************************
     #******* Output Ports *********
     #******************************
