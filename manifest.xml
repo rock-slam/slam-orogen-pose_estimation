@@ -9,6 +9,7 @@
   <depend package="base/cmake" />
   <depend package="drivers/orogen/aggregator" />
   <depend package="slam/pose_estimation"/>
+  <depend package="drivers/orogen/transformer"/>
 
   <tags>needs_opt</tags>
 </package>
