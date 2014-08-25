@@ -32,7 +32,7 @@ task_context "BaseTask" do
     #******************************
     runtime_states :MISSING_TRANSFORMATION
 
-    periodic 0.1
+    periodic 0.01
 end
 
 task_context "UWPoseEstimator" do
@@ -50,13 +50,21 @@ task_context "UWPoseEstimator" do
 	needs_reliable_connection.
 	doc "depth samples from a pressure sensor, containing the absolute z-position in world coordinates."
 
-    input_port( "velocity_samples", "/base/samples/RigidBodyState" ).
+    input_port( "dvl_velocity_samples", "/base/samples/RigidBodyState" ).
 	needs_reliable_connection.
 	doc "velocity samples from a DVL, containing the velocity."
+	
+    input_port( "model_velocity_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "model based velocity samples, containing the xy velocity."
 
-    input_port( "position_samples", "/base/samples/RigidBodyState" ).
+    input_port( "lbl_position_samples", "/base/samples/RigidBodyState" ).
 	needs_reliable_connection.
 	doc "position samples from a LBL or USBL, containing the absolute position in world coordinates."
+	
+    input_port( "xy_position_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "position samples from a localization module, containing the xy position in world coordinates."
 
 
     #******************************
@@ -70,8 +78,10 @@ task_context "UWPoseEstimator" do
         
 	align_port("orientation_samples", 0.01)
 	align_port("depth_samples", 0.01)
-	align_port("velocity_samples", 0.01)
-	align_port("position_samples", 0.01)
+	align_port("dvl_velocity_samples", 0.01)
+	align_port("model_velocity_samples", 0.01)
+	align_port("lbl_position_samples", 0.01)
+	align_port("xy_position_samples", 0.01)
 	max_latency(0.1)
     end
 

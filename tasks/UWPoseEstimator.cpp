@@ -37,22 +37,38 @@ void UWPoseEstimator::orientation_samplesTransformerCallback(const base::Time &t
     handleMeasurement(ts, orientation_samples_sample, config, _imu2body);
 }
 
-void UWPoseEstimator::position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &position_samples_sample)
+void UWPoseEstimator::lbl_position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &lbl_position_samples_sample)
 {
     MeasurementConfig config;
     config.measurement_mask[BodyStateMemberX] = 1;
     config.measurement_mask[BodyStateMemberY] = 1;
     config.measurement_mask[BodyStateMemberZ] = 1;
-    handleMeasurement(ts, position_samples_sample, config, _lbl2body);
+    handleMeasurement(ts, lbl_position_samples_sample, config, _lbl2body);
 }
 
-void UWPoseEstimator::velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &velocity_samples_sample)
+void UWPoseEstimator::xy_position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &xy_position_samples_sample)
+{
+    MeasurementConfig config;
+    config.measurement_mask[BodyStateMemberX] = 1;
+    config.measurement_mask[BodyStateMemberY] = 1;
+    handleMeasurement(ts, xy_position_samples_sample, config);
+}
+
+void UWPoseEstimator::dvl_velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &dvl_velocity_samples_sample)
 {
     MeasurementConfig config;
     config.measurement_mask[BodyStateMemberVx] = 1;
     config.measurement_mask[BodyStateMemberVy] = 1;
     config.measurement_mask[BodyStateMemberVz] = 1;
-    handleMeasurement(ts, velocity_samples_sample, config, _dvl2body);
+    handleMeasurement(ts, dvl_velocity_samples_sample, config, _dvl2body);
+}
+
+void UWPoseEstimator::model_velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &model_velocity_samples_sample)
+{
+    MeasurementConfig config;
+    config.measurement_mask[BodyStateMemberVx] = 1;
+    config.measurement_mask[BodyStateMemberVy] = 1;
+    handleMeasurement(ts, model_velocity_samples_sample, config);
 }
 
 /// The following lines are template definitions for the various state machine
