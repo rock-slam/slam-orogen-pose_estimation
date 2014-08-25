@@ -78,6 +78,47 @@ task_context "UWPoseEstimator" do
     periodic 0.01
 end
 
+task_context "AvalonPoseEstimator" do
+    subclasses "BaseTask"
+    needs_configuration
+
+    #******************************
+    #******* Input Ports **********
+    #******************************
+    input_port( "orientation_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "orientation samples from an IMU and or a FOG, containing the orientation and the angular velocity."
+
+    input_port( "depth_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "depth samples from a pressure sensor, containing the absolute z-position in world coordinates."
+
+    input_port( "model_velocity_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "velocity samples from a auv model, containing the xy velocity."
+
+    input_port( "xy_position_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "position samples from a localization module, containing the absolute position in map coordinates."
+
+
+    #******************************
+    #** Aggregator Parameters ***** 
+    #******************************
+    transformer do
+        transformation("imu", "body")
+        transformation("pressure_sensor", "body")
+        
+	align_port("orientation_samples", 0.01)
+	align_port("depth_samples", 0.01)
+	align_port("model_velocity_samples", 0.01)
+	align_port("xy_position_samples", 0.01)
+	max_latency(0.1)
+    end
+
+    periodic 0.01
+end
+
 task_context "VehiclePoseEstimator" do
     subclasses "BaseTask"
     needs_configuration
