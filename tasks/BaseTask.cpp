@@ -29,9 +29,23 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
         return;
     }
     
-    // transform measurement in body frame
     base::samples::RigidBodyState transformed_rbs = measurement;
-    transformed_rbs.setTransform(sensor2body * measurement.getTransform());
+
+    // set possible NaN's to zero to allow transformation
+    for(unsigned i = 0; i < 3; i++)
+    {
+        if(config.measurement_mask[i] == 0)
+            transformed_rbs.position[i] = 0.0;
+    }
+    for(unsigned i = 6; i < 9; i++)
+    {
+        if(config.measurement_mask[i] == 0)
+            transformed_rbs.velocity[i] = 0.0;
+    }
+
+    // transform measurement in body frame
+    transformed_rbs.position = sensor2body * transformed_rbs.position;
+    transformed_rbs.orientation = sensor2body.rotation() * transformed_rbs.orientation;
     transformed_rbs.velocity = sensor2body.rotation() * transformed_rbs.velocity;
     transformed_rbs.angular_velocity = sensor2body.rotation() * transformed_rbs.angular_velocity;
     
