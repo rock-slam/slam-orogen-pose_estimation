@@ -65,10 +65,13 @@ void BaseTask::updateState()
     pose_estimator->integrateMeasurements();
     
     // write estimated body state
-    base::samples::RigidBodyState body_state = pose_estimator->getEstimatedState();
-    body_state.targetFrame = _target_frame.get();
-    body_state.sourceFrame = source_frame;
-    _pose_samples.write(body_state);
+    base::samples::RigidBodyState body_state;
+    if(pose_estimator->getEstimatedState(body_state))
+    {
+	body_state.targetFrame = _target_frame.get();
+	body_state.sourceFrame = source_frame;
+	_pose_samples.write(body_state);
+    }
     
     // write task state if it has changed
     if(last_state != new_state)
