@@ -38,6 +38,8 @@ namespace pose_estimation {
 	
 	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config, const transformer::Transformation& sensor2body_transformer);
 	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config);
+
+        bool setupFilter();
 	
 	/** Updates and writes the current robot pose and task state.
 	 * The seperation in this method ensures that this is done at the end of the update hook
@@ -45,6 +47,7 @@ namespace pose_estimation {
 	 */
 	void updateState();
 	
+        virtual bool resetState();
 
     public:
         /** TaskContext constructor for BaseTask

@@ -16,6 +16,9 @@ task_context "BaseTask" do
     property( "filter_type", "/pose_estimation/FilterType", :EKF )
     
     property( "max_time_delta", "double", 2.0 )
+
+    property( "initial_state", "/base/samples/RigidBodyState" ).
+        doc("the initial state, NaN values will be ignored.")
     
     
     property( 'target_frame', '/std/string', 'world' ).
@@ -26,6 +29,13 @@ task_context "BaseTask" do
     #******************************
     output_port( "pose_samples", "/base/samples/RigidBodyState" ).
         doc "timestamped samples of the current estimated pose of the robot."
+
+    #******************************
+    #********* Operations *********
+    #******************************
+    operation('resetState').
+        returns('bool').
+        doc 'resets the current state to the initial state.'
 
     #******************************
     #******** Task States ********* 

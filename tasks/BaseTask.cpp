@@ -81,6 +81,55 @@ void BaseTask::updateState()
     }
 }
 
+bool BaseTask::setupFilter()
+{
+    pose_estimator.reset(new PoseEstimator(_filter_type.get()));
+    
+    base::samples::RigidBodyState init_state(false);
+    init_state.initUnknown();
+    init_state.cov_position = 1.0 * base::Matrix3d::Identity();
+    init_state.cov_orientation = 1.0 * base::Matrix3d::Identity();
+    init_state.cov_velocity = 0.1 * base::Matrix3d::Identity();
+    init_state.cov_angular_velocity = 0.05 * base::Matrix3d::Identity();
+
+    base::samples::RigidBodyState override_init_state = _initial_state.value();
+    if(override_init_state.hasValidPosition())
+        init_state.position = override_init_state.position;
+    if(override_init_state.hasValidOrientation())
+        init_state.orientation = override_init_state.orientation;
+    if(override_init_state.hasValidVelocity())
+        init_state.velocity = override_init_state.velocity;    
+    if(override_init_state.hasValidAngularVelocity())
+        init_state.angular_velocity = override_init_state.angular_velocity;
+
+    if(override_init_state.hasValidPositionCovariance())
+        init_state.cov_position = override_init_state.cov_position;
+    if(override_init_state.hasValidOrientationCovariance())
+        init_state.cov_orientation = override_init_state.cov_orientation;
+    if(override_init_state.hasValidVelocityCovariance())
+        init_state.cov_velocity = override_init_state.cov_velocity;    
+    if(override_init_state.hasValidAngularVelocityCovariance())
+        init_state.cov_angular_velocity = override_init_state.cov_angular_velocity;
+
+    pose_estimator->setInitialState(init_state);
+    
+    Covariance process_noise = Covariance::Zero();
+    process_noise.block(0,0,3,3) = 0.01 * base::Matrix3d::Identity();
+    process_noise.block(3,3,3,3) = 0.001 * base::Matrix3d::Identity();
+    process_noise.block(6,6,3,3) = 0.001 * base::Matrix3d::Identity();
+    process_noise.block(9,9,3,3) = 0.0001 * base::Matrix3d::Identity();
+    pose_estimator->setProcessNoise(process_noise);
+    
+    pose_estimator->setMaxTimeDelta(_max_time_delta.get());
+
+    return true;
+}
+
+bool BaseTask::resetState()
+{
+    return setupFilter();
+}
+
 
 /// The following lines are template definitions for the various state machine
 // hooks defined by Orocos::RTT. See BaseTask.hpp for more detailed
@@ -96,24 +145,8 @@ bool BaseTask::configureHook()
     // the source frame should be overwritten in the derived task
     source_frame = "body";
     
-    pose_estimator.reset(new PoseEstimator(_filter_type.get()));
-    
-    base::samples::RigidBodyState init_state(false);
-    init_state.initUnknown();
-    init_state.cov_position = 1.0 * base::Matrix3d::Identity();
-    init_state.cov_orientation = 1.0 * base::Matrix3d::Identity();
-    init_state.cov_velocity = 0.1 * base::Matrix3d::Identity();
-    init_state.cov_angular_velocity = 0.05 * base::Matrix3d::Identity();
-    pose_estimator->setInitialState(init_state);
-    
-    Covariance process_noise = Covariance::Zero();
-    process_noise.block(0,0,3,3) = 0.01 * base::Matrix3d::Identity();
-    process_noise.block(3,3,3,3) = 0.001 * base::Matrix3d::Identity();
-    process_noise.block(6,6,3,3) = 0.001 * base::Matrix3d::Identity();
-    process_noise.block(9,9,3,3) = 0.0001 * base::Matrix3d::Identity();
-    pose_estimator->setProcessNoise(process_noise);
-    
-    pose_estimator->setMaxTimeDelta(_max_time_delta.get());
+    if(!setupFilter())
+        return false;
     
     return true;
 }
