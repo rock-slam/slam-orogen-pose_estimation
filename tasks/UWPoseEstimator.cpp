@@ -22,6 +22,7 @@ void UWPoseEstimator::depth_samplesTransformerCallback(const base::Time &ts, con
 {
     MeasurementConfig config;
     config.measurement_mask[BodyStateMemberZ] = 1;
+    config.measurement_mask[BodyStateMemberVz] = 1;
     handleMeasurement(ts, depth_samples_sample, config, _pressure_sensor2body);
 }
 
