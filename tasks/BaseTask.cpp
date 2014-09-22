@@ -62,7 +62,14 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
 void BaseTask::updateState()
 {
     // integrate measurements
-    pose_estimator->integrateMeasurements();
+    try
+    {
+	pose_estimator->integrateMeasurements();
+    }
+    catch (std::runtime_error e)
+    {
+	RTT::log(RTT::Error) << "Failed to integrate measurements: " << e.what() << RTT::endlog();
+    }
     
     // write estimated body state
     base::samples::RigidBodyState body_state;
