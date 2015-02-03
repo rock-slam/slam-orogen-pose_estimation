@@ -34,6 +34,10 @@ namespace pose_estimation {
 	States new_state;
 	std::string source_frame;
 	boost::shared_ptr<PoseEstimator> pose_estimator;
+	std::map<std::string, size_t> aligner_samples_received;
+	std::map<std::string, size_t> aligner_samples_dropped;
+	base::Time aligner_last_verified;
+	unsigned aligner_stream_failures;
 	
 	
 	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config, const transformer::Transformation& sensor2body_transformer);
@@ -48,6 +52,10 @@ namespace pose_estimation {
 	void updateState();
 	
         virtual bool resetState();
+	
+	void verifyStreamAlignerStatus(transformer::Transformer &trans, double verification_interval = 2.0) 
+				    {verifyStreamAlignerStatus(trans.getStreamAlignerStatus(), verification_interval);}
+	void verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus &status, double verification_interval = 2.0);
 
     public:
         /** TaskContext constructor for BaseTask

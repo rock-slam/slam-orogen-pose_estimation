@@ -40,7 +40,7 @@ task_context "BaseTask" do
     #******************************
     #******** Task States ********* 
     #******************************
-    runtime_states :MISSING_TRANSFORMATION
+    runtime_states :MISSING_TRANSFORMATION, :TRANSFORMATION_ALIGNMENT_FAILURES
 
     periodic 0.01
 end

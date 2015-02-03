@@ -67,6 +67,9 @@ void VehiclePoseEstimator::updateHook()
 {
     VehiclePoseEstimatorBase::updateHook();
     
+    // verify stream aligner status
+    verifyStreamAlignerStatus(_transformer);
+    
     // update and write new state
     updateState();
 }
