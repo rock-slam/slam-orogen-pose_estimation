@@ -83,39 +83,6 @@ void UWPoseEstimator::gps_position_samplesTransformerCallback(const base::Time &
   
 }
 
-
-void UWPoseEstimator::reset_position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &reset_position_samples_sample)
-{
-  base::samples::RigidBodyState rbs;
-  rbs.position = reset_position_samples_sample.position;
-  rbs.cov_position = base::Matrix3d::Identity() * 1e-9; //Use very small variance 
-  
-  MeasurementConfig config;
-  config.measurement_mask[BodyStateMemberX] = 1;
-  config.measurement_mask[BodyStateMemberY] = 1;
-  
-  //If we have a valid orientation -> Use yaw
-  if(reset_position_samples_sample.hasValidOrientation())
-  {
-    rbs.orientation = reset_position_samples_sample.orientation;
-    rbs.cov_position = base::Matrix3d::Identity() * 1e-9;
-    
-    config.measurement_mask[BodyStateMemberYaw] = 1;    
-  }
-  
-  handleMeasurement(ts, rbs, config);
-  
-}
-
-
-void UWPoseEstimator::reset_to_origin()
-{
-  base::samples::RigidBodyState rbs;
-  rbs.position = base::Vector3d::Zero();
-  
-  reset_position_samplesTransformerCallback(base::Time::now(), rbs);
-}
-
 /// The following lines are template definitions for the various state machine
 // hooks defined by Orocos::RTT. See UWPoseEstimator.hpp for more detailed
 // documentation about them.

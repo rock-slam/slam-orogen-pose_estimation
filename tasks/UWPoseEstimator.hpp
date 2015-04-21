@@ -39,10 +39,6 @@ namespace pose_estimation {
 	virtual void model_velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &model_velocity_samples_sample);
 	
 	virtual void gps_position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &gps_position_samples_sample);
-	
-	virtual void reset_position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &reset_position_samples_sample);
-	
-	void reset_to_origin();
 
     public:
         /** TaskContext constructor for UWPoseEstimator

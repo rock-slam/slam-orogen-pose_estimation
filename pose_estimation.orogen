@@ -79,14 +79,6 @@ task_context "UWPoseEstimator" do
     input_port( "gps_position_samples", "/base/samples/RigidBodyState" ).
 	needs_reliable_connection.
 	doc "position samples from a gps-sensor, containing position in gps-coordinates"
-	
-    input_port( "reset_position_samples", "/base/samples/RigidBodyState" ).
-	needs_reliable_connection.
-	doc "External position for reseting the filter to a known position"
-	
-   
-    operation( "reset_to_origin").
-	doc "Reset the position to the origin"
 
 
     #******************************
@@ -106,7 +98,6 @@ task_context "UWPoseEstimator" do
 	align_port("lbl_position_samples", 0.01)
 	align_port("xy_position_samples", 0.01)
 	align_port("gps_position_samples", 0.01)
-	align_port("reset_position_samples", 0.01)
 	max_latency(0.1)
     end
 
