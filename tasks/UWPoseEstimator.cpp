@@ -83,6 +83,17 @@ void UWPoseEstimator::gps_position_samplesTransformerCallback(const base::Time &
   
 }
 
+
+void UWPoseEstimator::xyz_position_samplesTransformerCallback( const base::Time &ts, const ::base::samples::RigidBodyState &xyz_position_samples_sample)
+{
+  MeasurementConfig config;
+  config.measurement_mask[BodyStateMemberX] = 1;
+  config.measurement_mask[BodyStateMemberY] = 1;
+  config.measurement_mask[BodyStateMemberZ] = 1;
+  
+  handleMeasurement(ts, xyz_position_samples_sample, config);
+}
+  
 /// The following lines are template definitions for the various state machine
 // hooks defined by Orocos::RTT. See UWPoseEstimator.hpp for more detailed
 // documentation about them.
