@@ -75,7 +75,15 @@ task_context "UWPoseEstimator" do
     input_port( "xy_position_samples", "/base/samples/RigidBodyState" ).
 	needs_reliable_connection.
 	doc "position samples from a localization module, containing the xy position in world coordinates."
+	
+    input_port( "gps_position_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "position samples from a gps-sensor, containing position in gps-coordinates"
 
+    input_port( "xyz_position_samples", "/base/samples/RigidBodyState" ).
+	needs_reliable_connection.
+	doc "position samples from a localization module, containing the xyz position in world coordinates."
+	
 
     #******************************
     #** Aggregator Parameters ***** 
@@ -85,6 +93,7 @@ task_context "UWPoseEstimator" do
         transformation("pressure_sensor", "body")
         transformation("dvl", "body")
         transformation("lbl", "body")
+        transformation("gps", "body")
         
 	align_port("orientation_samples", 0.01)
 	align_port("depth_samples", 0.01)
@@ -92,6 +101,8 @@ task_context "UWPoseEstimator" do
 	align_port("model_velocity_samples", 0.01)
 	align_port("lbl_position_samples", 0.01)
 	align_port("xy_position_samples", 0.01)
+	align_port("gps_position_samples", 0.01)
+	align_port("xyz_position_samples", 0.01)
 	max_latency(0.1)
     end
 

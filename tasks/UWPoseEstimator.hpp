@@ -37,7 +37,11 @@ namespace pose_estimation {
         virtual void dvl_velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &dvl_velocity_samples_sample);
 	
 	virtual void model_velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &model_velocity_samples_sample);
+	
+	virtual void gps_position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &gps_position_samples_sample);
 
+	virtual void xyz_position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &xyz_position_samples_sample);
+	
     public:
         /** TaskContext constructor for UWPoseEstimator
          * \param name Name of the task. This name needs to be unique to make it identifiable via nameservices.
