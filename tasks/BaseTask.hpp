@@ -39,6 +39,7 @@ namespace pose_estimation {
 	std::map<std::string, size_t> aligner_samples_dropped;
 	base::Time aligner_last_verified;
 	unsigned aligner_stream_failures;
+        base::samples::RigidBodyState current_body_state;
 	
 	
 	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config, const transformer::Transformation& sensor2body_transformer);

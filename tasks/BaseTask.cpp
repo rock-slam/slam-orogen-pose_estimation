@@ -63,6 +63,11 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
     }
     
     transformed_rbs.velocity = sensor2body.rotation() * transformed_rbs.velocity;
+    if(current_body_state.hasValidAngularVelocity() && !current_body_state.angular_velocity.isZero())
+    {
+        base::Vector3d euler_angle_velocity = base::getEuler(base::Orientation(Eigen::AngleAxisd(current_body_state.angular_velocity.norm(), current_body_state.angular_velocity.normalized())));
+        transformed_rbs.velocity -= Eigen::Vector3d(euler_angle_velocity.z(), euler_angle_velocity.y(), euler_angle_velocity.x()).cross(sensor2body.translation());
+    }
     transformed_rbs.angular_velocity = sensor2body.rotation() * transformed_rbs.angular_velocity;
     
     handleMeasurement(ts, transformed_rbs, config);
@@ -91,6 +96,7 @@ void BaseTask::updateState()
     base::samples::RigidBodyState body_state;
     if(pose_estimator->getEstimatedState(body_state))
     {
+        current_body_state = body_state;
 	body_state.targetFrame = _target_frame.get();
 	body_state.sourceFrame = source_frame;
 	_pose_samples.write(body_state);
@@ -212,6 +218,7 @@ bool BaseTask::configureHook()
     aligner_stream_failures = 0;
     aligner_samples_received.clear();
     aligner_samples_dropped.clear();
+    current_body_state.invalidate();
     
     if(!setupFilter())
         return false;
