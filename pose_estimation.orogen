@@ -109,6 +109,38 @@ task_context "UWPoseEstimator" do
     periodic 0.01
 end
 
+task_context "HighDelayPoseEstimator" do
+    subclasses "BaseTask"
+    needs_configuration
+
+    #******************************
+    #******* Input Ports **********
+    #******************************
+    input_port( "pose_samples_fast", "/base/samples/RigidBodyState" ).
+        needs_reliable_connection.
+        doc "Pose samples with will be processed fast to create a actual pose"
+
+    input_port( "pose_samples_slow", "/base/samples/RigidBodyState" ).
+        needs_reliable_connection.
+        doc "Pose samples which will be precessed when a new delayed meassurement arives"
+
+    input_port( "xy_position_samples", "/base/samples/RigidBodyState" ).
+        needs_reliable_connection.
+        doc "Position samples with can have a high delay"
+
+
+    #******************************
+    #** Aggregator Parameters ***** 
+    #******************************
+    transformer do        
+        align_port("pose_samples_slow", 0.01)
+        align_port("xy_position_samples", 5.0)
+        max_latency(30.0)
+    end
+
+    periodic 0.01
+end
+
 task_context "VehiclePoseEstimator" do
     subclasses "BaseTask"
     needs_configuration
