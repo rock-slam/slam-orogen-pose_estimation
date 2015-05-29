@@ -9,6 +9,7 @@
 #include <pose_estimation/PoseEstimator.hpp>
 #include <pose_estimation/Measurement.hpp>
 #include <transformer/Transformer.hpp>
+#include <pose_estimationTypes.hpp>
 
 namespace pose_estimation {
 
