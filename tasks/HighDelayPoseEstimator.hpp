@@ -4,8 +4,16 @@
 #define POSE_ESTIMATION_HIGHDELAYPOSEESTIMATOR_TASK_HPP
 
 #include "pose_estimation/HighDelayPoseEstimatorBase.hpp"
+#include <list>
 
 namespace pose_estimation {
+    
+    struct DelayedMeasurement
+    {
+        base::Time ts;
+        base::samples::RigidBodyState measurement;
+        MeasurementConfig config;
+    };
 
     /*! \class HighDelayPoseEstimator 
      * \brief The task context provides and requires services. It uses an ExecutionEngine to perform its functions.
@@ -25,14 +33,15 @@ namespace pose_estimation {
     {
 	friend class HighDelayPoseEstimatorBase;
     protected:
-        Eigen::Affine3d last_slow_pose_sample;
         Eigen::Affine3d aligned_slow_pose_sample;
-        Eigen::Affine3d last_pose_state;
+        std::list <DelayedMeasurement> delayed_measurements;
         
 
         virtual void pose_samples_slowTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &pose_samples_slow_sample);
 
         virtual void xy_position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &xy_position_samples_sample);
+        
+        void handleDelayedMeasurements(const base::Time &ts);
 
     public:
         /** TaskContext constructor for HighDelayPoseEstimator

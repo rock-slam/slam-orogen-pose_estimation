@@ -20,39 +20,44 @@ HighDelayPoseEstimator::~HighDelayPoseEstimator()
 
 void HighDelayPoseEstimator::pose_samples_slowTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &pose_samples_slow_sample)
 {
-    last_slow_pose_sample = pose_samples_slow_sample.getTransform();
-    MeasurementConfig config;
-    config.measurement_mask[BodyStateMemberX] = 1;
-    config.measurement_mask[BodyStateMemberY] = 1;
-    config.measurement_mask[BodyStateMemberZ] = 1;
-    config.measurement_mask[BodyStateMemberVx] = 1;
-    config.measurement_mask[BodyStateMemberVy] = 1;
-    config.measurement_mask[BodyStateMemberVz] = 1;
-    config.measurement_mask[BodyStateMemberRoll] = 1;
-    config.measurement_mask[BodyStateMemberPitch] = 1;
-    config.measurement_mask[BodyStateMemberYaw] = 1;
-    config.measurement_mask[BodyStateMemberVroll] = 1;
-    config.measurement_mask[BodyStateMemberVpitch] = 1;
-    config.measurement_mask[BodyStateMemberVyaw] = 1;
-    handleMeasurement(ts, pose_samples_slow_sample, config);
+    DelayedMeasurement measurement;
+    measurement.measurement = pose_samples_slow_sample;
+    measurement.ts = ts;
+    measurement.config.measurement_mask[BodyStateMemberX] = 1;
+    measurement.config.measurement_mask[BodyStateMemberY] = 1;
+    measurement.config.measurement_mask[BodyStateMemberZ] = 1;
+    measurement.config.measurement_mask[BodyStateMemberVx] = 1;
+    measurement.config.measurement_mask[BodyStateMemberVy] = 1;
+    measurement.config.measurement_mask[BodyStateMemberVz] = 1;
+    measurement.config.measurement_mask[BodyStateMemberRoll] = 1;
+    measurement.config.measurement_mask[BodyStateMemberPitch] = 1;
+    measurement.config.measurement_mask[BodyStateMemberYaw] = 1;
+    measurement.config.measurement_mask[BodyStateMemberVroll] = 1;
+    measurement.config.measurement_mask[BodyStateMemberVpitch] = 1;
+    measurement.config.measurement_mask[BodyStateMemberVyaw] = 1;
+    // transform velocity to source frame, since the input is expected to be this way
+    measurement.measurement.velocity = pose_samples_slow_sample.orientation.inverse() * pose_samples_slow_sample.velocity;
+    delayed_measurements.push_back(measurement);
 }
 
 void HighDelayPoseEstimator::xy_position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &xy_position_samples_sample)
 {
+    handleDelayedMeasurements(ts);
+    
     MeasurementConfig config;
     config.measurement_mask[BodyStateMemberX] = 1;
     config.measurement_mask[BodyStateMemberY] = 1;
     handleMeasurement(ts, xy_position_samples_sample, config);
-    
-    // integrate measurements
-    try
+}
+
+void HighDelayPoseEstimator::handleDelayedMeasurements(const base::Time& ts)
+{
+    std::list<DelayedMeasurement>::iterator it = delayed_measurements.begin();
+    while(it != delayed_measurements.end() && it->ts <= ts)
     {
-        pose_estimator->integrateMeasurements();
-        aligned_slow_pose_sample = last_slow_pose_sample;
-    }
-    catch (std::runtime_error e)
-    {
-        RTT::log(RTT::Error) << "Failed to integrate measurements: " << e.what() << RTT::endlog();
+        aligned_slow_pose_sample = it->measurement.getTransform();
+        handleMeasurement(it->ts, it->measurement, it->config);
+        it = delayed_measurements.erase(it);
     }
 }
 
@@ -65,7 +70,6 @@ bool HighDelayPoseEstimator::configureHook()
     if (! HighDelayPoseEstimatorBase::configureHook())
         return false;
     
-    last_slow_pose_sample.matrix() = base::NaN<double>() * Eigen::Matrix<double,4,4>::Ones();
     aligned_slow_pose_sample.matrix() = base::NaN<double>() * Eigen::Matrix<double,4,4>::Ones();
     
     return true;
@@ -82,6 +86,16 @@ void HighDelayPoseEstimator::updateHook()
 
     // verify stream aligner status
     verifyStreamAlignerStatus(_transformer);
+    
+    // integrate measurements
+    try
+    {
+        pose_estimator->integrateMeasurements();
+    }
+    catch (std::runtime_error e)
+    {
+        RTT::log(RTT::Error) << "Failed to integrate measurements: " << e.what() << RTT::endlog();
+    }
 
     // update and write new state
     base::samples::RigidBodyState pose_sample;
