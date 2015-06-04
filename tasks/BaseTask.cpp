@@ -1,6 +1,7 @@
 /* Generated from orogen/lib/orogen/templates/tasks/Task.cpp */
 
 #include "BaseTask.hpp"
+#include <pose_estimation/Measurement.hpp>
 
 using namespace pose_estimation;
 
@@ -44,8 +45,23 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
     }
 
     // transform measurement in body frame
-    transformed_rbs.position = sensor2body * transformed_rbs.position;
-    transformed_rbs.orientation = sensor2body.rotation() * transformed_rbs.orientation;
+    Measurement m;
+    m.member_mask = config.measurement_mask.cast<unsigned>();
+    if(m.hasPositionMeasurement() && m.hasOrientationMeasurement())
+    {
+        transformed_rbs.setTransform(transformed_rbs.getTransform() * sensor2body.inverse());
+    }
+    else if(m.hasPositionMeasurement())
+    {
+        transformed_rbs.orientation = base::Orientation::Identity();
+        transformed_rbs.setTransform(transformed_rbs.getTransform() * sensor2body.inverse());
+    }
+    else if(m.hasOrientationMeasurement())
+    {
+        transformed_rbs.position = base::Position::Zero();
+        transformed_rbs.setTransform(transformed_rbs.getTransform() * sensor2body.inverse());
+    }
+    
     transformed_rbs.velocity = sensor2body.rotation() * transformed_rbs.velocity;
     transformed_rbs.angular_velocity = sensor2body.rotation() * transformed_rbs.angular_velocity;
     
