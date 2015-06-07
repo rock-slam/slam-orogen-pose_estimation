@@ -23,8 +23,8 @@ void HighDelayPoseEstimator::pose_samples_slowTransformerCallback(const base::Ti
     DelayedMeasurement measurement;
     measurement.measurement = pose_samples_slow_sample;
     measurement.ts = ts;
-    measurement.config.measurement_mask[BodyStateMemberX] = 1;
-    measurement.config.measurement_mask[BodyStateMemberY] = 1;
+    measurement.config.measurement_mask[BodyStateMemberX] = 0;
+    measurement.config.measurement_mask[BodyStateMemberY] = 0;
     measurement.config.measurement_mask[BodyStateMemberZ] = 1;
     measurement.config.measurement_mask[BodyStateMemberVx] = 1;
     measurement.config.measurement_mask[BodyStateMemberVy] = 1;
@@ -107,6 +107,7 @@ void HighDelayPoseEstimator::updateHook()
         if(pose_estimator->getEstimatedState(filter_state) && base::isnotnan(aligned_slow_pose_sample.matrix()))
         {
             base::samples::RigidBodyState new_state = pose_sample;
+	    new_state.cov_position = filter_state.cov_position;
             new_state.setTransform(filter_state.getTransform() * (aligned_slow_pose_sample.inverse() * pose_sample.getTransform()));
             _pose_samples.write(new_state);
         }
