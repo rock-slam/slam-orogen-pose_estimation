@@ -132,7 +132,8 @@ task_context "HighDelayPoseEstimator" do
     #******************************
     #** Aggregator Parameters ***** 
     #******************************
-    transformer do        
+    transformer do
+	transformation("xy_map", "target_map")
         align_port("pose_samples_slow", 0.01)
         align_port("xy_position_samples", 5.0)
         max_latency(30.0)

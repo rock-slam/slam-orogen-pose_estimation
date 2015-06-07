@@ -44,10 +44,21 @@ void HighDelayPoseEstimator::xy_position_samplesTransformerCallback(const base::
 {
     handleDelayedMeasurements(ts);
     
-    MeasurementConfig config;
-    config.measurement_mask[BodyStateMemberX] = 1;
-    config.measurement_mask[BodyStateMemberY] = 1;
-    handleMeasurement(ts, xy_position_samples_sample, config);
+    // receive sensor to body transformation
+    Eigen::Affine3d sensor_map2target_map;
+    if (!_xy_map2target_map.get(ts, sensor_map2target_map))
+    {
+        RTT::log(RTT::Error) << "skip, have no " << _xy_map2target_map.getSourceFrame() << "2" << _xy_map2target_map.getTargetFrame() << std::endl;
+        new_state = BaseTask::MISSING_TRANSFORMATION;
+        return;
+    }
+
+    base::samples::RigidBodyState transformed_position_sample = xy_position_samples_sample;
+    transformed_position_sample.position = sensor_map2target_map * Eigen::Vector3d(xy_position_samples_sample.position.x(), xy_position_samples_sample.position.y(), 0.0);
+	    MeasurementConfig config;
+	    config.measurement_mask[BodyStateMemberX] = 1;
+	    config.measurement_mask[BodyStateMemberY] = 1;
+	    handleMeasurement(ts, transformed_position_sample, config);
 }
 
 void HighDelayPoseEstimator::handleDelayedMeasurements(const base::Time& ts)
