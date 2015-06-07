@@ -55,10 +55,28 @@ void HighDelayPoseEstimator::xy_position_samplesTransformerCallback(const base::
 
     base::samples::RigidBodyState transformed_position_sample = xy_position_samples_sample;
     transformed_position_sample.position = sensor_map2target_map * Eigen::Vector3d(xy_position_samples_sample.position.x(), xy_position_samples_sample.position.y(), 0.0);
+
+	if(use_operational_area)
+	{
+		if(operational_area.contains(Eigen::Vector2d(transformed_position_sample.position.x(), transformed_position_sample.position.y())))
+		{
+		    MeasurementConfig config;
+		    config.measurement_mask[BodyStateMemberX] = 1;
+		    config.measurement_mask[BodyStateMemberY] = 1;
+		    handleMeasurement(ts, transformed_position_sample, config);
+		}
+		else
+		{
+			RTT::log(RTT::Error) << "Measurement position " << transformed_position_sample.position.transpose() << " is outside of the operational area! Measurement will be skiped." << std::endl;
+		}
+	}
+	else
+	{
 	    MeasurementConfig config;
 	    config.measurement_mask[BodyStateMemberX] = 1;
 	    config.measurement_mask[BodyStateMemberY] = 1;
 	    handleMeasurement(ts, transformed_position_sample, config);
+	}
 }
 
 void HighDelayPoseEstimator::handleDelayedMeasurements(const base::Time& ts)
@@ -82,6 +100,17 @@ bool HighDelayPoseEstimator::configureHook()
         return false;
     
     aligned_slow_pose_sample.matrix() = base::NaN<double>() * Eigen::Matrix<double,4,4>::Ones();
+
+	operational_area.setEmpty();
+	if(_operational_area.value().from != _operational_area.value().to)
+	{
+		use_operational_area = true;
+		operational_area.extend(_operational_area.value().from);
+		operational_area.extend(_operational_area.value().to);
+	}
+	else
+		use_operational_area = false;
+	
     
     return true;
 }

@@ -113,6 +113,8 @@ task_context "HighDelayPoseEstimator" do
     subclasses "BaseTask"
     needs_configuration
 
+    property("operational_area", "/pose_estimation/OperationalArea")
+
     #******************************
     #******* Input Ports **********
     #******************************

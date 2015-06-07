@@ -17,6 +17,17 @@ struct MeasurementConfig
     MeasurementConfig() : measurement_mask(BODY_STATE_SIZE, 1) {measurement_mask.setZero();}
 };
 
+struct OperationalArea
+{
+    base::Vector2d from;
+    base::Vector2d to;
+    OperationalArea()
+    {
+	from.setZero();
+	to.setZero();
+    }
+};
+
 }
 
 #endif

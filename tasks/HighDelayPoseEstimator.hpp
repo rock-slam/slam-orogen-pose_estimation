@@ -35,7 +35,8 @@ namespace pose_estimation {
     protected:
         Eigen::Affine3d aligned_slow_pose_sample;
         std::list <DelayedMeasurement> delayed_measurements;
-        
+	Eigen::AlignedBox<double, 2> operational_area;
+        bool use_operational_area;
 
         virtual void pose_samples_slowTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &pose_samples_slow_sample);
 
