@@ -22,7 +22,6 @@ void UWPoseEstimator::depth_samplesTransformerCallback(const base::Time &ts, con
 {
     MeasurementConfig config;
     config.measurement_mask[BodyStateMemberZ] = 1;
-    config.measurement_mask[BodyStateMemberVz] = 1;
     handleMeasurement(ts, depth_samples_sample, config, _pressure_sensor2body);
 }
 
@@ -32,9 +31,6 @@ void UWPoseEstimator::orientation_samplesTransformerCallback(const base::Time &t
     config.measurement_mask[BodyStateMemberRoll] = 1;
     config.measurement_mask[BodyStateMemberPitch] = 1;
     config.measurement_mask[BodyStateMemberYaw] = 1;
-    config.measurement_mask[BodyStateMemberVroll] = 1;
-    config.measurement_mask[BodyStateMemberVpitch] = 1;
-    config.measurement_mask[BodyStateMemberVyaw] = 1;
     handleMeasurement(ts, orientation_samples_sample, config, _imu2body);
 }
 

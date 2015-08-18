@@ -23,18 +23,12 @@ void HighDelayPoseEstimator::pose_samples_slowTransformerCallback(const base::Ti
     DelayedMeasurement measurement;
     measurement.measurement = pose_samples_slow_sample;
     measurement.ts = ts;
-    measurement.config.measurement_mask[BodyStateMemberX] = 0;
-    measurement.config.measurement_mask[BodyStateMemberY] = 0;
     measurement.config.measurement_mask[BodyStateMemberZ] = 1;
     measurement.config.measurement_mask[BodyStateMemberVx] = 1;
     measurement.config.measurement_mask[BodyStateMemberVy] = 1;
-    measurement.config.measurement_mask[BodyStateMemberVz] = 1;
     measurement.config.measurement_mask[BodyStateMemberRoll] = 1;
     measurement.config.measurement_mask[BodyStateMemberPitch] = 1;
     measurement.config.measurement_mask[BodyStateMemberYaw] = 1;
-    measurement.config.measurement_mask[BodyStateMemberVroll] = 1;
-    measurement.config.measurement_mask[BodyStateMemberVpitch] = 1;
-    measurement.config.measurement_mask[BodyStateMemberVyaw] = 1;
     // transform velocity to source frame, since the input is expected to be this way
     measurement.measurement.velocity = pose_samples_slow_sample.orientation.inverse() * pose_samples_slow_sample.velocity;
     delayed_measurements.push_back(measurement);
