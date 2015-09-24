@@ -114,6 +114,7 @@ bool BaseTask::setupFilter()
 {
     pose_estimator.reset(new PoseEstimator(_filter_type.get()));
     
+    // setup initial state
     base::samples::RigidBodyState init_state(false);
     init_state.initUnknown();
     init_state.cov_position = 1.0 * base::Matrix3d::Identity();
@@ -142,12 +143,28 @@ bool BaseTask::setupFilter()
 
     pose_estimator->setInitialState(init_state);
     
-    Covariance process_noise = Covariance::Zero();
-    process_noise.block(0,0,3,3) = 0.01 * base::Matrix3d::Identity();
-    process_noise.block(3,3,3,3) = 0.001 * base::Matrix3d::Identity();
-    process_noise.block(6,6,3,3) = 0.001 * base::Matrix3d::Identity();
-    process_noise.block(9,9,3,3) = 0.0001 * base::Matrix3d::Identity();
-    pose_estimator->setProcessNoise(process_noise);
+    // setup process noise
+    const ProcessNoise& process_noise = _process_noise.value();
+    Covariance process_noise_cov = Covariance::Zero();
+
+    if(base::isnotnan(process_noise.position_noise))
+        process_noise_cov.block(0,0,3,3) = process_noise.position_noise;
+    else
+        process_noise_cov.block(0,0,3,3) = 0.01 * base::Matrix3d::Identity();
+    if(base::isnotnan(process_noise.orientation_noise))
+        process_noise_cov.block(3,3,3,3) = process_noise.orientation_noise;
+    else
+        process_noise_cov.block(3,3,3,3) = 0.001 * base::Matrix3d::Identity();
+    if(base::isnotnan(process_noise.velocity_noise))
+        process_noise_cov.block(6,6,3,3) = process_noise.velocity_noise;
+    else
+        process_noise_cov.block(6,6,3,3) = 0.001 * base::Matrix3d::Identity();
+    if(base::isnotnan(process_noise.angular_velocity_noise))
+        process_noise_cov.block(9,9,3,3) = process_noise.angular_velocity_noise;
+    else
+        process_noise_cov.block(9,9,3,3) = 0.0001 * base::Matrix3d::Identity();
+
+    pose_estimator->setProcessNoise(process_noise_cov);
     
     pose_estimator->setMaxTimeDelta(_max_time_delta.get());
 

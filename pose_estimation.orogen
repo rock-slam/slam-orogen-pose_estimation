@@ -19,6 +19,9 @@ task_context "BaseTask" do
 
     property( "initial_state", "/base/samples/RigidBodyState" ).
         doc("the initial state, NaN values will be ignored.")
+
+    property( "process_noise", "/pose_estimation/ProcessNoise" ).
+        doc("Filter process noise, NaN values will be ignored and set to a healthy but likely overconfident value.")
     
     
     property( 'target_frame', '/std/string', 'world' ).
