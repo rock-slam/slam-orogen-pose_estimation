@@ -80,6 +80,13 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
 	RTT::log(RTT::Error) << "Failed to add measurement from " << measurement.sourceFrame << "." << RTT::endlog();
 }
 
+void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& measurement, const base::samples::RigidBodyAcceleration& measurement_acc, const MeasurementConfig& config)
+{
+    // enqueue new measurement
+    if(!pose_estimator->enqueueMeasurement(ts, measurement, measurement_acc, config.measurement_mask.cast<unsigned>()))
+        RTT::log(RTT::Error) << "Failed to add measurement from " << measurement.sourceFrame << "." << RTT::endlog();
+}
+
 void BaseTask::updateState()
 {
     // integrate measurements

@@ -14,7 +14,7 @@ struct MeasurementConfig
 {
     base::VectorXd measurement_mask;
 
-    MeasurementConfig() : measurement_mask(BODY_STATE_SIZE, 1) {measurement_mask.setZero();}
+    MeasurementConfig() : measurement_mask(MEASUREMENT_SIZE, 1) {measurement_mask.setZero();}
 };
 
 struct ProcessNoise

@@ -4,6 +4,8 @@
 #define POSE_ESTIMATION_UWPOSEESTIMATOR_TASK_HPP
 
 #include "pose_estimation/UWPoseEstimatorBase.hpp"
+#include "base/samples/RigidBodyState.hpp"
+#include "base/samples/RigidBodyAcceleration.hpp"
 
 namespace pose_estimation {
 
@@ -25,6 +27,8 @@ namespace pose_estimation {
     {
 	friend class UWPoseEstimatorBase;
     protected:
+
+        virtual void acceleration_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyAcceleration &acceleration_samples_sample);
 
         virtual void depth_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &depth_samples_sample);
 
