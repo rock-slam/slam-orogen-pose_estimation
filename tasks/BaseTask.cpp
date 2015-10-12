@@ -38,9 +38,9 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
         if(config.measurement_mask[i] == 0)
             transformed_rbs.position[i] = 0.0;
     }
-    for(unsigned i = 6; i < 9; i++)
+    for(unsigned i = 0; i < 3; i++)
     {
-        if(config.measurement_mask[i] == 0)
+        if(config.measurement_mask[BodyStateMemberVx+i] == 0)
             transformed_rbs.velocity[i] = 0.0;
     }
 
