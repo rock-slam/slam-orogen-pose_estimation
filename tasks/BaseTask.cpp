@@ -45,7 +45,7 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
     }
 
     // transform measurement in body frame
-    Measurement m;
+    BodyStateMeasurement m;
     m.member_mask = config.measurement_mask.cast<unsigned>();
     if(m.hasPositionMeasurement() && m.hasOrientationMeasurement())
     {
