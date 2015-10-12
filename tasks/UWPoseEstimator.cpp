@@ -18,6 +18,16 @@ UWPoseEstimator::~UWPoseEstimator()
 {
 }
 
+void UWPoseEstimator::acceleration_samplesTransformerCallback(const base::Time& ts, const base::samples::RigidBodyAcceleration& acceleration_samples_sample)
+{
+    MeasurementConfig config;
+    config.measurement_mask[BodyStateMemberAx] = 1;
+    config.measurement_mask[BodyStateMemberAy] = 1;
+    config.measurement_mask[BodyStateMemberAz] = 1;
+    base::samples::RigidBodyState aux;
+    handleMeasurement(ts, aux, acceleration_samples_sample, config);
+}
+
 void UWPoseEstimator::depth_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &depth_samples_sample)
 {
     MeasurementConfig config;

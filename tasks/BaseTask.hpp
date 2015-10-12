@@ -44,6 +44,7 @@ namespace pose_estimation {
 	
 	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config, const transformer::Transformation& sensor2body_transformer);
 	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config);
+        void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const base::samples::RigidBodyAcceleration &measurement_acc, const MeasurementConfig &config);
 
         bool setupFilter();
 	

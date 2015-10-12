@@ -38,9 +38,9 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
         if(config.measurement_mask[i] == 0)
             transformed_rbs.position[i] = 0.0;
     }
-    for(unsigned i = 6; i < 9; i++)
+    for(unsigned i = 0; i < 3; i++)
     {
-        if(config.measurement_mask[i] == 0)
+        if(config.measurement_mask[BodyStateMemberVx+i] == 0)
             transformed_rbs.velocity[i] = 0.0;
     }
 
@@ -78,6 +78,13 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
     // enqueue new measurement
     if(!pose_estimator->enqueueMeasurement(measurement, config.measurement_mask.cast<unsigned>()))
 	RTT::log(RTT::Error) << "Failed to add measurement from " << measurement.sourceFrame << "." << RTT::endlog();
+}
+
+void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& measurement, const base::samples::RigidBodyAcceleration& measurement_acc, const MeasurementConfig& config)
+{
+    // enqueue new measurement
+    if(!pose_estimator->enqueueMeasurement(ts, measurement, measurement_acc, config.measurement_mask.cast<unsigned>()))
+        RTT::log(RTT::Error) << "Failed to add measurement from " << measurement.sourceFrame << "." << RTT::endlog();
 }
 
 void BaseTask::updateState()
