@@ -108,6 +108,17 @@ void BaseTask::updateState()
 	body_state.sourceFrame = source_frame;
 	_pose_samples.write(body_state);
     }
+
+    // write filter state
+    if(_write_filter_state.value() && debug_timeout.elapsed())
+    {
+        FilterState full_state;
+        full_state.time = base::Time::now();
+        full_state.state = pose_estimator->getFullState();
+        full_state.cov_diagonal = pose_estimator->getFullCovariance().diagonal();
+        _filter_state.write(full_state);
+        debug_timeout.restart();
+    }
     
     // write task state if it has changed
     if(last_state != new_state)
@@ -236,6 +247,8 @@ bool BaseTask::configureHook()
     new_state = RUNNING;
     // the source frame should be overwritten in the derived task
     source_frame = "body";
+
+    debug_timeout = base::Timeout(base::Time::fromSeconds(1));
     
     // stream aligner verification
     aligner_last_verified.microseconds = 0;

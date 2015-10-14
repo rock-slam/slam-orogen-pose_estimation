@@ -10,6 +10,7 @@
 #include <pose_estimation/Measurement.hpp>
 #include <transformer/Transformer.hpp>
 #include <pose_estimationTypes.hpp>
+#include <base/Timeout.hpp>
 
 namespace pose_estimation {
 
@@ -40,6 +41,7 @@ namespace pose_estimation {
 	base::Time aligner_last_verified;
 	unsigned aligner_stream_failures;
         base::samples::RigidBodyState current_body_state;
+        base::Timeout debug_timeout;
 	
 	
 	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config, const transformer::Transformation& sensor2body_transformer);

@@ -30,6 +30,13 @@ struct ProcessNoise
                      angular_velocity_noise(base::Matrix3d::Constant(base::unknown<double>())) {}
 };
 
+struct FilterState
+{
+    base::Time time;
+    base::VectorXd state;
+    base::VectorXd cov_diagonal;
+};
+
 }
 
 #endif

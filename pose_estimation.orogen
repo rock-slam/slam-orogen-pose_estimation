@@ -26,12 +26,18 @@ task_context "BaseTask" do
     
     property( 'target_frame', '/std/string', 'world' ).
     	doc "The target frame in the generated poses. The source frame is the body frame (as declared in the transformer configuration)"
+
+    property( 'write_filter_state', 'bool', false ).
+        doc "if true the full filter state will be writen out every second"
     
     #******************************
     #******* Output Ports *********
     #******************************
     output_port( "pose_samples", "/base/samples/RigidBodyState" ).
         doc "timestamped samples of the current estimated pose of the robot."
+
+    output_port( "filter_state", "/pose_estimation/FilterState" ).
+        doc "full filter state, for debugging purpose"
 
     #******************************
     #********* Operations *********
