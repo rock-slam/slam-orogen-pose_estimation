@@ -23,9 +23,11 @@ task_context "BaseTask" do
     property( "process_noise", "/pose_estimation/ProcessNoise" ).
         doc("Filter process noise, NaN values will be ignored and set to a healthy but likely overconfident value.")
     
-    
     property( 'target_frame', '/std/string', 'world' ).
     	doc "The target frame in the generated poses. The source frame is the body frame (as declared in the transformer configuration)"
+
+    property( 'allow_older_measurements', 'bool', false ).
+        doc "Allow the integration of older measurements"
 
     property( 'write_filter_state', 'bool', false ).
         doc "if true the full filter state will be writen out every second"

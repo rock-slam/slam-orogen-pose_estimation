@@ -186,6 +186,8 @@ bool BaseTask::setupFilter()
     
     pose_estimator->setMaxTimeDelta(_max_time_delta.get());
 
+    pose_estimator->allowIntegrationOfOlderMeasurements(_allow_older_measurements.value());
+
     return true;
 }
 
