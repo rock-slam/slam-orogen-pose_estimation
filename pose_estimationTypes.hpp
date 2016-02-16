@@ -3,19 +3,11 @@
 
 #include <vector>
 #include <string>
-#include <pose_estimation/Measurement.hpp>
 #include <base/Eigen.hpp>
 #include <base/Float.hpp>
 
 namespace pose_estimation
 {
-    
-struct MeasurementConfig
-{
-    base::VectorXd measurement_mask;
-
-    MeasurementConfig() : measurement_mask(MEASUREMENT_SIZE, 1) {measurement_mask.setZero();}
-};
 
 struct ProcessNoise
 {

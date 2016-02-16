@@ -23,12 +23,12 @@ void HighDelayPoseEstimator::pose_samples_slowTransformerCallback(const base::Ti
     DelayedMeasurement measurement;
     measurement.measurement = pose_samples_slow_sample;
     measurement.ts = ts;
-    measurement.config.measurement_mask[BodyStateMemberZ] = 1;
-    measurement.config.measurement_mask[BodyStateMemberVx] = 1;
-    measurement.config.measurement_mask[BodyStateMemberVy] = 1;
-    measurement.config.measurement_mask[BodyStateMemberRoll] = 1;
-    measurement.config.measurement_mask[BodyStateMemberPitch] = 1;
-    measurement.config.measurement_mask[BodyStateMemberYaw] = 1;
+    measurement.measurement_mask[BodyStateMemberZ] = 1;
+    measurement.measurement_mask[BodyStateMemberVx] = 1;
+    measurement.measurement_mask[BodyStateMemberVy] = 1;
+    measurement.measurement_mask[BodyStateMemberRoll] = 1;
+    measurement.measurement_mask[BodyStateMemberPitch] = 1;
+    measurement.measurement_mask[BodyStateMemberYaw] = 1;
     // transform velocity to source frame, since the input is expected to be this way
     measurement.measurement.velocity = pose_samples_slow_sample.orientation.inverse() * pose_samples_slow_sample.velocity;
     delayed_measurements.push_back(measurement);
@@ -49,10 +49,10 @@ void HighDelayPoseEstimator::xy_position_samplesTransformerCallback(const base::
 
     base::samples::RigidBodyState transformed_position_sample = xy_position_samples_sample;
     transformed_position_sample.position = sensor_map2target_map * Eigen::Vector3d(xy_position_samples_sample.position.x(), xy_position_samples_sample.position.y(), 0.0);
-	    MeasurementConfig config;
-	    config.measurement_mask[BodyStateMemberX] = 1;
-	    config.measurement_mask[BodyStateMemberY] = 1;
-	    handleMeasurement(ts, transformed_position_sample, config);
+    MemberMask measurement_mask = MemberMask::Zero();
+    measurement_mask[BodyStateMemberX] = 1;
+    measurement_mask[BodyStateMemberY] = 1;
+    handleMeasurement(ts, transformed_position_sample, measurement_mask);
 }
 
 void HighDelayPoseEstimator::handleDelayedMeasurements(const base::Time& ts)
@@ -61,7 +61,7 @@ void HighDelayPoseEstimator::handleDelayedMeasurements(const base::Time& ts)
     while(it != delayed_measurements.end() && it->ts <= ts)
     {
         aligned_slow_pose_sample = it->measurement.getTransform();
-        handleMeasurement(it->ts, it->measurement, it->config);
+        handleMeasurement(it->ts, it->measurement, it->measurement_mask);
         it = delayed_measurements.erase(it);
     }
 }
@@ -108,12 +108,14 @@ void HighDelayPoseEstimator::updateHook()
     {
         pose_sample.targetFrame = _target_frame.get();
         pose_sample.sourceFrame = source_frame;
-        base::samples::RigidBodyState filter_state;
+        StateAndCovariance filter_state;
         if(pose_estimator->getEstimatedState(filter_state) && base::isnotnan(aligned_slow_pose_sample.matrix()))
         {
+            base::samples::RigidBodyState filter_state_rbs;
+            BodyStateMeasurement::toRigidBodyState(filter_state.mu, filter_state.cov, filter_state_rbs);
             base::samples::RigidBodyState new_state = pose_sample;
-	    new_state.cov_position = filter_state.cov_position;
-            new_state.setTransform(filter_state.getTransform() * (aligned_slow_pose_sample.inverse() * pose_sample.getTransform()));
+	    new_state.cov_position = filter_state_rbs.cov_position;
+            new_state.setTransform(filter_state_rbs.getTransform() * (aligned_slow_pose_sample.inverse() * pose_sample.getTransform()));
             _pose_samples.write(new_state);
         }
         else

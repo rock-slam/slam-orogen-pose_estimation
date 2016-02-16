@@ -12,7 +12,12 @@ namespace pose_estimation {
     {
         base::Time ts;
         base::samples::RigidBodyState measurement;
-        MeasurementConfig config;
+        MemberMask measurement_mask;
+
+        DelayedMeasurement()
+        {
+            measurement_mask = MemberMask::Zero();
+        }
     };
 
     /*! \class HighDelayPoseEstimator 

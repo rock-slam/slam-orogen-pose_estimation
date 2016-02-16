@@ -20,28 +20,28 @@ VehiclePoseEstimator::~VehiclePoseEstimator()
 
 void VehiclePoseEstimator::orientation_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &orientation_samples_sample)
 {
-    MeasurementConfig config;
-    config.measurement_mask[BodyStateMemberRoll] = 1;
-    config.measurement_mask[BodyStateMemberPitch] = 1;
-    config.measurement_mask[BodyStateMemberYaw] = 1;
-    handleMeasurement(ts, orientation_samples_sample, config, _imu2body);
+    MemberMask measurement_mask = MemberMask::Zero();
+    measurement_mask[BodyStateMemberRoll] = 1;
+    measurement_mask[BodyStateMemberPitch] = 1;
+    measurement_mask[BodyStateMemberYaw] = 1;
+    handleMeasurement(ts, orientation_samples_sample, measurement_mask, _imu2body);
 }
 
 void VehiclePoseEstimator::position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &position_samples_sample)
 {
-    MeasurementConfig config;
-    config.measurement_mask[BodyStateMemberX] = 1;
-    config.measurement_mask[BodyStateMemberY] = 1;
-    config.measurement_mask[BodyStateMemberZ] = 1;
-    handleMeasurement(ts, position_samples_sample, config);
+    MemberMask measurement_mask = MemberMask::Zero();
+    measurement_mask[BodyStateMemberX] = 1;
+    measurement_mask[BodyStateMemberY] = 1;
+    measurement_mask[BodyStateMemberZ] = 1;
+    handleMeasurement(ts, position_samples_sample, measurement_mask);
 }
 
 void VehiclePoseEstimator::velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &velocity_samples_sample)
 {
-    MeasurementConfig config;
-    config.measurement_mask[BodyStateMemberVx] = 1;
-    config.measurement_mask[BodyStateMemberVyaw] = 1;
-    handleMeasurement(ts, velocity_samples_sample, config);
+    MemberMask measurement_mask = MemberMask::Zero();
+    measurement_mask[BodyStateMemberVx] = 1;
+    measurement_mask[BodyStateMemberVyaw] = 1;
+    handleMeasurement(ts, velocity_samples_sample, measurement_mask);
 }
 
 /// The following lines are template definitions for the various state machine

@@ -4,7 +4,6 @@ name "pose_estimation"
 using_library "pose_estimation"
 
 import_types_from "base"
-import_types_from "pose_estimation/PoseEstimatorConfig.hpp"
 import_types_from "pose_estimationTypes.hpp"
 
 task_context "BaseTask" do

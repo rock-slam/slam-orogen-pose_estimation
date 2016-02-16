@@ -2,6 +2,8 @@
 
 #include "BaseTask.hpp"
 #include <pose_estimation/Measurement.hpp>
+#include <pose_estimation/pose_with_velocity/PoseUKF.hpp>
+#include <pose_estimation/pose_with_velocity/BodyStateMeasurement.hpp>
 
 using namespace pose_estimation;
 
@@ -19,7 +21,7 @@ BaseTask::~BaseTask()
 {
 }
 
-void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& measurement, const MeasurementConfig& config, const transformer::Transformation& sensor2body_transformer)
+void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& measurement, const MemberMask& member_mask, const transformer::Transformation& sensor2body_transformer)
 {
     // receive sensor to body transformation
     Eigen::Affine3d sensor2body;
@@ -35,28 +37,26 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
     // set possible NaN's to zero to allow transformation
     for(unsigned i = 0; i < 3; i++)
     {
-        if(config.measurement_mask[i] == 0)
+        if(member_mask[i] == 0)
             transformed_rbs.position[i] = 0.0;
     }
     for(unsigned i = 0; i < 3; i++)
     {
-        if(config.measurement_mask[BodyStateMemberVx+i] == 0)
+        if(member_mask[BodyStateMemberVx+i] == 0)
             transformed_rbs.velocity[i] = 0.0;
     }
 
     // transform measurement in body frame
-    BodyStateMeasurement m;
-    m.member_mask = config.measurement_mask.cast<unsigned>();
-    if(m.hasPositionMeasurement() && m.hasOrientationMeasurement())
+    if(BodyStateMeasurement::hasPositionMeasurement(member_mask) && BodyStateMeasurement::hasOrientationMeasurement(member_mask))
     {
         transformed_rbs.setTransform(transformed_rbs.getTransform() * sensor2body.inverse());
     }
-    else if(m.hasPositionMeasurement())
+    else if(BodyStateMeasurement::hasPositionMeasurement(member_mask))
     {
         transformed_rbs.orientation = base::Orientation::Identity();
         transformed_rbs.setTransform(transformed_rbs.getTransform() * sensor2body.inverse());
     }
-    else if(m.hasOrientationMeasurement())
+    else if(BodyStateMeasurement::hasOrientationMeasurement(member_mask))
     {
         transformed_rbs.position = base::Position::Zero();
         transformed_rbs.setTransform(transformed_rbs.getTransform() * sensor2body.inverse());
@@ -70,21 +70,31 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
     }
     transformed_rbs.angular_velocity = sensor2body.rotation() * transformed_rbs.angular_velocity;
     
-    handleMeasurement(ts, transformed_rbs, config);
+    handleMeasurement(ts, transformed_rbs, member_mask);
 }
 
-void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& measurement, const MeasurementConfig& config)
+void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& rbs, const MemberMask& member_mask)
 {
+    Measurement measurement;
+    BodyStateMeasurement::fromBodyStateToMeasurement(rbs, member_mask, measurement);
+
     // enqueue new measurement
-    if(!pose_estimator->enqueueMeasurement(measurement, config.measurement_mask.cast<unsigned>()))
-	RTT::log(RTT::Error) << "Failed to add measurement from " << measurement.sourceFrame << "." << RTT::endlog();
+    if(!pose_estimator->enqueueMeasurement(measurement))
+	RTT::log(RTT::Error) << "Failed to add measurement from " << rbs.sourceFrame << "." << RTT::endlog();
 }
 
-void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& measurement, const base::samples::RigidBodyAcceleration& measurement_acc, const MeasurementConfig& config)
+void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyAcceleration& rba)
 {
+    Measurement measurement;
+    measurement.time = ts;
+    measurement.mu = rba.acceleration;
+    measurement.cov = rba.cov_acceleration;
+    measurement.integration = User;
+    measurement.measurement_name = "acceleration";
+
     // enqueue new measurement
-    if(!pose_estimator->enqueueMeasurement(ts, measurement, measurement_acc, config.measurement_mask.cast<unsigned>()))
-        RTT::log(RTT::Error) << "Failed to add measurement from " << measurement.sourceFrame << "." << RTT::endlog();
+    if(!pose_estimator->enqueueMeasurement(measurement))
+        RTT::log(RTT::Error) << "Failed to add from acceleration measurement." << RTT::endlog();
 }
 
 void BaseTask::updateState()
@@ -100,9 +110,11 @@ void BaseTask::updateState()
     }
     
     // write estimated body state
-    base::samples::RigidBodyState body_state;
-    if(pose_estimator->getEstimatedState(body_state))
+    StateAndCovariance current_state;
+    if(pose_estimator->getEstimatedState(current_state))
     {
+        base::samples::RigidBodyState body_state;
+        BodyStateMeasurement::toRigidBodyState(current_state.mu, current_state.cov, body_state);
         current_body_state = body_state;
 	body_state.targetFrame = _target_frame.get();
 	body_state.sourceFrame = source_frame;
@@ -119,40 +131,41 @@ void BaseTask::updateState()
 
 bool BaseTask::setupFilter()
 {
-    pose_estimator.reset(new PoseEstimator(_filter_type.get()));
-    
     // setup initial state
-    base::samples::RigidBodyState init_state(false);
-    init_state.initUnknown();
-    init_state.cov_position = 1.0 * base::Matrix3d::Identity();
-    init_state.cov_orientation = 1.0 * base::Matrix3d::Identity();
-    init_state.cov_velocity = 0.1 * base::Matrix3d::Identity();
-    init_state.cov_angular_velocity = 0.05 * base::Matrix3d::Identity();
+    base::samples::RigidBodyState init_rbs(false);
+    init_rbs.initUnknown();
+    init_rbs.cov_position = 1.0 * base::Matrix3d::Identity();
+    init_rbs.cov_orientation = 1.0 * base::Matrix3d::Identity();
+    init_rbs.cov_velocity = 0.1 * base::Matrix3d::Identity();
+    init_rbs.cov_angular_velocity = 0.05 * base::Matrix3d::Identity();
 
     base::samples::RigidBodyState override_init_state = _initial_state.value();
     if(override_init_state.hasValidPosition())
-        init_state.position = override_init_state.position;
+        init_rbs.position = override_init_state.position;
     if(override_init_state.hasValidOrientation())
-        init_state.orientation = override_init_state.orientation;
+        init_rbs.orientation = override_init_state.orientation;
     if(override_init_state.hasValidVelocity())
-        init_state.velocity = override_init_state.velocity;    
+        init_rbs.velocity = override_init_state.velocity;
     if(override_init_state.hasValidAngularVelocity())
-        init_state.angular_velocity = override_init_state.angular_velocity;
+        init_rbs.angular_velocity = override_init_state.angular_velocity;
 
     if(override_init_state.hasValidPositionCovariance())
-        init_state.cov_position = override_init_state.cov_position;
+        init_rbs.cov_position = override_init_state.cov_position;
     if(override_init_state.hasValidOrientationCovariance())
-        init_state.cov_orientation = override_init_state.cov_orientation;
+        init_rbs.cov_orientation = override_init_state.cov_orientation;
     if(override_init_state.hasValidVelocityCovariance())
-        init_state.cov_velocity = override_init_state.cov_velocity;    
+        init_rbs.cov_velocity = override_init_state.cov_velocity;
     if(override_init_state.hasValidAngularVelocityCovariance())
-        init_state.cov_angular_velocity = override_init_state.cov_angular_velocity;
+        init_rbs.cov_angular_velocity = override_init_state.cov_angular_velocity;
 
-    pose_estimator->setInitialState(init_state);
+    StateAndCovariance init_state;
+    BodyStateMeasurement::fromRigidBodyState(init_rbs, init_state.mu, init_state.cov);
+    boost::shared_ptr<PoseUKF> ukf(new PoseUKF(init_state));
+    pose_estimator.reset(new PoseEstimator(ukf));
     
     // setup process noise
     const ProcessNoise& process_noise = _process_noise.value();
-    Covariance process_noise_cov = Covariance::Zero();
+    PoseUKF::Covariance process_noise_cov = PoseUKF::Covariance::Zero();
 
     if(base::isnotnan(process_noise.position_noise))
         process_noise_cov.block(0,0,3,3) = process_noise.position_noise;

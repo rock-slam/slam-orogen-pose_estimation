@@ -8,6 +8,7 @@
 #include <boost/shared_ptr.hpp>
 #include <pose_estimation/PoseEstimator.hpp>
 #include <pose_estimation/Measurement.hpp>
+#include <pose_estimation/pose_with_velocity/BodyStateMeasurement.hpp>
 #include <transformer/Transformer.hpp>
 #include <pose_estimationTypes.hpp>
 
@@ -41,10 +42,9 @@ namespace pose_estimation {
 	unsigned aligner_stream_failures;
         base::samples::RigidBodyState current_body_state;
 	
-	
-	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config, const transformer::Transformation& sensor2body_transformer);
-	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config);
-        void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const base::samples::RigidBodyAcceleration &measurement_acc, const MeasurementConfig &config);
+	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &rbs, const MemberMask& member_mask, const transformer::Transformation& sensor2body_transformer);
+	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &rbs, const MemberMask& member_mask);
+        void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyAcceleration &rba);
 
         bool setupFilter();
 	
