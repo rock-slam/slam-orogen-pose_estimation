@@ -13,8 +13,6 @@ task_context "BaseTask" do
     #******************************
     #***** Filter Properties ******
     #******************************
-    property( "filter_type", "/pose_estimation/FilterType", :EKF )
-    
     property( "max_time_delta", "double", 2.0 )
 
     property( "initial_state", "/base/samples/RigidBodyState" ).
