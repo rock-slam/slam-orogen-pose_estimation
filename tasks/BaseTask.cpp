@@ -89,7 +89,7 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
     measurement.time = ts;
     measurement.mu = rba.acceleration;
     measurement.cov = rba.cov_acceleration;
-    measurement.integration = User;
+    measurement.integration = pose_estimation::UserDefined;
     measurement.measurement_name = "acceleration";
 
     // enqueue new measurement
