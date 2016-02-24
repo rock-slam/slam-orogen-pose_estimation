@@ -11,6 +11,7 @@
 #include <pose_estimation/pose_with_velocity/BodyStateMeasurement.hpp>
 #include <transformer/Transformer.hpp>
 #include <pose_estimationTypes.hpp>
+#include <pose_estimation/StreamAlignmentVerifier.hpp>
 
 namespace pose_estimation {
 
@@ -36,9 +37,7 @@ namespace pose_estimation {
 	States new_state;
 	std::string source_frame;
 	boost::shared_ptr<PoseEstimator> pose_estimator;
-	std::map<std::string, size_t> aligner_samples_received;
-	std::map<std::string, size_t> aligner_samples_dropped;
-	base::Time aligner_last_verified;
+	boost::shared_ptr<StreamAlignmentVerifier> verifier;
 	unsigned aligner_stream_failures;
         base::samples::RigidBodyState current_body_state;
 	
