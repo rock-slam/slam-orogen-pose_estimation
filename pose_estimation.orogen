@@ -7,6 +7,7 @@ import_types_from "base"
 import_types_from "pose_estimationTypes.hpp"
 
 task_context "BaseTask" do
+    abstract
     needs_configuration
    
     #******************************
