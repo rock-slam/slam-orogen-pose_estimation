@@ -1,27 +1,27 @@
 /* Generated from orogen/lib/orogen/templates/tasks/Task.cpp */
 
-#include "BaseTask.hpp"
+#include "RBSFilter.hpp"
 #include <pose_estimation/Measurement.hpp>
 #include <pose_estimation/pose_with_velocity/PoseUKF.hpp>
 #include <pose_estimation/pose_with_velocity/BodyStateMeasurement.hpp>
 
 using namespace pose_estimation;
 
-BaseTask::BaseTask(std::string const& name)
-    : BaseTaskBase(name)
+RBSFilter::RBSFilter(std::string const& name)
+    : RBSFilterBase(name)
 {
 }
 
-BaseTask::BaseTask(std::string const& name, RTT::ExecutionEngine* engine)
-    : BaseTaskBase(name, engine)
+RBSFilter::RBSFilter(std::string const& name, RTT::ExecutionEngine* engine)
+    : RBSFilterBase(name, engine)
 {
 }
 
-BaseTask::~BaseTask()
+RBSFilter::~RBSFilter()
 {
 }
 
-void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& measurement, const MemberMask& member_mask, const transformer::Transformation& sensor2body_transformer)
+void RBSFilter::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& measurement, const MemberMask& member_mask, const transformer::Transformation& sensor2body_transformer)
 {
     // receive sensor to body transformation
     Eigen::Affine3d sensor2body;
@@ -69,11 +69,22 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
         transformed_rbs.velocity -= Eigen::Vector3d(euler_angle_velocity.z(), euler_angle_velocity.y(), euler_angle_velocity.x()).cross(sensor2body.translation());
     }
     transformed_rbs.angular_velocity = sensor2body.rotation() * transformed_rbs.angular_velocity;
+
+    // transform covariances
+    if(sensor2body.rotation() != Eigen::Matrix3d::Identity())
+    {
+        Eigen::Matrix3d sensor2body_rotation = sensor2body.rotation();
+        Eigen::Matrix3d sensor2body_rotation_transpose = sensor2body_rotation.transpose();
+        transformed_rbs.cov_position = sensor2body_rotation * transformed_rbs.cov_position * sensor2body_rotation_transpose;
+        transformed_rbs.cov_orientation = sensor2body_rotation * transformed_rbs.cov_orientation * sensor2body_rotation_transpose;
+        transformed_rbs.cov_velocity = sensor2body_rotation * transformed_rbs.cov_velocity * sensor2body_rotation_transpose;
+        transformed_rbs.cov_angular_velocity = sensor2body_rotation * transformed_rbs.cov_angular_velocity * sensor2body_rotation_transpose;
+    }
     
     handleMeasurement(ts, transformed_rbs, member_mask);
 }
 
-void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& rbs, const MemberMask& member_mask)
+void RBSFilter::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& rbs, const MemberMask& member_mask)
 {
     Measurement measurement;
     BodyStateMeasurement::fromBodyStateToMeasurement(rbs, member_mask, measurement);
@@ -83,7 +94,7 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
 	RTT::log(RTT::Error) << "Failed to add measurement from " << rbs.sourceFrame << "." << RTT::endlog();
 }
 
-void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyAcceleration& rba)
+void RBSFilter::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyAcceleration& rba)
 {
     Measurement measurement;
     measurement.time = ts;
@@ -97,7 +108,7 @@ void BaseTask::handleMeasurement(const base::Time& ts, const base::samples::Rigi
         RTT::log(RTT::Error) << "Failed to add from acceleration measurement." << RTT::endlog();
 }
 
-void BaseTask::updateState()
+void RBSFilter::updateState()
 {
     // integrate measurements
     try
@@ -129,7 +140,7 @@ void BaseTask::updateState()
     }
 }
 
-bool BaseTask::setupFilter()
+bool RBSFilter::setupFilter()
 {
     // setup initial state
     base::samples::RigidBodyState init_rbs(false);
@@ -191,12 +202,12 @@ bool BaseTask::setupFilter()
     return true;
 }
 
-bool BaseTask::resetState()
+bool RBSFilter::resetState()
 {
     return setupFilter();
 }
 
-void BaseTask::verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus& status, double verification_interval)
+void RBSFilter::verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus& status, double verification_interval)
 {
     verifier->verifyStreamAlignerStatus(status, aligner_stream_failures);
     
@@ -206,12 +217,12 @@ void BaseTask::verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus& 
 
 
 /// The following lines are template definitions for the various state machine
-// hooks defined by Orocos::RTT. See BaseTask.hpp for more detailed
+// hooks defined by Orocos::RTT. See RBSFilter.hpp for more detailed
 // documentation about them.
 
-bool BaseTask::configureHook()
+bool RBSFilter::configureHook()
 {
-    if (! BaseTaskBase::configureHook())
+    if (! RBSFilterBase::configureHook())
         return false;
     
     last_state = PRE_OPERATIONAL;
@@ -232,26 +243,26 @@ bool BaseTask::configureHook()
     
     return true;
 }
-bool BaseTask::startHook()
+bool RBSFilter::startHook()
 {
-    if (! BaseTaskBase::startHook())
+    if (! RBSFilterBase::startHook())
         return false;
     return true;
 }
-void BaseTask::updateHook()
+void RBSFilter::updateHook()
 {
     new_state = RUNNING;
-    BaseTaskBase::updateHook();
+    RBSFilterBase::updateHook();
 }
-void BaseTask::errorHook()
+void RBSFilter::errorHook()
 {
-    BaseTaskBase::errorHook();
+    RBSFilterBase::errorHook();
 }
-void BaseTask::stopHook()
+void RBSFilter::stopHook()
 {
-    BaseTaskBase::stopHook();
+    RBSFilterBase::stopHook();
 }
-void BaseTask::cleanupHook()
+void RBSFilter::cleanupHook()
 {
-    BaseTaskBase::cleanupHook();
+    RBSFilterBase::cleanupHook();
 }

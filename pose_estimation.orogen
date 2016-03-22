@@ -6,7 +6,7 @@ using_library "pose_estimation"
 import_types_from "base"
 import_types_from "pose_estimationTypes.hpp"
 
-task_context "BaseTask" do
+task_context "RBSFilter" do
     abstract
     needs_configuration
    
@@ -47,7 +47,7 @@ task_context "BaseTask" do
 end
 
 task_context "UWPoseEstimator" do
-    subclasses "BaseTask"
+    subclasses "RBSFilter"
     needs_configuration
 
     #******************************
@@ -116,7 +116,7 @@ task_context "UWPoseEstimator" do
 end
 
 task_context "HighDelayPoseEstimator" do
-    subclasses "BaseTask"
+    subclasses "RBSFilter"
     needs_configuration
 
     #******************************
@@ -149,7 +149,7 @@ task_context "HighDelayPoseEstimator" do
 end
 
 task_context "VehiclePoseEstimator" do
-    subclasses "BaseTask"
+    subclasses "RBSFilter"
     needs_configuration
 
     #******************************

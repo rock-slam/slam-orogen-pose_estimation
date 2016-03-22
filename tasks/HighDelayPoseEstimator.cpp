@@ -43,7 +43,7 @@ void HighDelayPoseEstimator::xy_position_samplesTransformerCallback(const base::
     if (!_xy_map2target_map.get(ts, sensor_map2target_map))
     {
         RTT::log(RTT::Error) << "skip, have no " << _xy_map2target_map.getSourceFrame() << "2" << _xy_map2target_map.getTargetFrame() << std::endl;
-        new_state = BaseTask::MISSING_TRANSFORMATION;
+        new_state = RBSFilter::MISSING_TRANSFORMATION;
         return;
     }
 
@@ -128,7 +128,7 @@ void HighDelayPoseEstimator::updateHook()
     if(last_state != new_state)
     {
         last_state = new_state;
-        BaseTaskBase::state(new_state);
+        RBSFilterBase::state(new_state);
     }
 }
 void HighDelayPoseEstimator::errorHook()
