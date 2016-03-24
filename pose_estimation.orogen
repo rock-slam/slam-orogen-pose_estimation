@@ -5,6 +5,74 @@ using_library "pose_estimation"
 
 import_types_from "base"
 import_types_from "pose_estimationTypes.hpp"
+import_types_from "pose_estimation/orientation_estimator/OrientationUKFConfig.hpp"
+
+task_context "OrientationEstimator" do
+    needs_configuration
+
+    #******************************
+    #***** Filter Properties ******
+    #******************************
+    # Maximum time delta of a prediction step
+    property( "max_time_delta", "double", 2.0 )
+
+    # The initial orientation in euler angles, NaN values will be ignored.
+    property( "initial_orientation", "/base/Vector3d" )
+
+    # Filter configuration
+    property( "filter_config", "/pose_estimation/OrientationUKFConfig" )
+
+    # The target frame in the generated poses. The source frame is the body frame (as declared in the transformer configuration)
+    property( 'target_frame', '/std/string', 'world' )
+
+    #******************************
+    #******* Input Ports **********
+    #******************************
+    # Velocity samples
+    input_port( "velocity_samples", "/base/samples/RigidBodyState" ).
+            needs_reliable_connection
+
+    # IMU acceleration and angular velocity samples
+    input_port('imu_sensor_samples', '/base/samples/IMUSensors').
+            needs_reliable_connection
+
+    #******************************
+    #******* Output Ports *********
+    #******************************
+    # Timestamped samples of the current estimated orientation and velocity of the robot.
+    output_port( "orientation_samples", "/base/samples/RigidBodyState" )
+
+    output_port( "bias_gyro", "base::Vector3d")
+    output_port( "bias_acc", "base::Vector3d")
+
+    #******************************
+    #** Aggregator Parameters *****
+    #******************************
+    transformer do
+        transformation("imu", "body")
+        transformation("velocity_provider", "body")
+
+        align_port("velocity_samples", 0.1)
+        align_port("imu_sensor_samples", 0.01)
+
+        max_latency(0.05)
+    end
+
+    #******************************
+    #********* Operations *********
+    #******************************
+    # resets the current heading, optimally to the true north
+    operation('resetHeading').
+        argument('heading', 'double', 'heading').
+        returns('bool')
+
+    #******************************
+    #******** Task States *********
+    #******************************
+    runtime_states :MISSING_TRANSFORMATION, :TRANSFORMATION_ALIGNMENT_FAILURES
+
+    periodic 0.01
+end
 
 task_context "RBSFilter" do
     abstract
@@ -33,6 +101,7 @@ task_context "RBSFilter" do
     #******************************
     output_port( "pose_samples", "/base/samples/RigidBodyState" ).
         doc "timestamped samples of the current estimated pose of the robot."
+
 
     #******************************
     #********* Operations *********
