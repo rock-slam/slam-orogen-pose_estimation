@@ -91,22 +91,13 @@ void OrientationEstimator::velocity_samplesTransformerCallback(const base::Time 
             velocity -= Eigen::Vector3d(euler_angle_velocity.z(), euler_angle_velocity.y(), euler_angle_velocity.x()).cross(velocityProviderInBody.translation() - imuInBody.translation());
         }
 
-        // get current orientation
-        OrientationUKF::FilterState current_state;
-        base::Orientation bodyInWorld = base::Orientation::Identity();
-        if(pose_estimator->getEstimatedState(current_state))
-        {
-            EulerConversion::eulerToQuad(current_state.mu.block(0,0,3,1), bodyInWorld);
-        }
-        Eigen::Quaterniond velocityProviderInWorld(bodyInWorld * velocityProviderInBody.rotation());
-
         // add velocity measurement
         pose_estimation::Measurement measurement;
         measurement.time = ts;
         measurement.measurement_name = OrientationUKF::velocity_measurement;
         measurement.integration = pose_estimation::UserDefined;
-        measurement.mu = bodyInWorld * velocity;
-        measurement.cov = velocityProviderInWorld.matrix() * velocity_samples_sample.cov_velocity * velocityProviderInWorld.matrix().transpose();
+        measurement.mu = velocity;
+        measurement.cov = velocityProviderInBody.rotation().matrix() * velocity_samples_sample.cov_velocity * velocityProviderInBody.rotation().matrix().transpose();
         if(!pose_estimator->enqueueMeasurement(measurement))
             RTT::log(RTT::Error) << "Failed to add velocity measurement." << RTT::endlog();
     }
