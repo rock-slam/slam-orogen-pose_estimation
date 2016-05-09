@@ -12,6 +12,7 @@
 #include <transformer/Transformer.hpp>
 #include <pose_estimationTypes.hpp>
 #include <pose_estimation/StreamAlignmentVerifier.hpp>
+#include <base/samples/RigidBodyAcceleration.hpp>
 
 namespace pose_estimation {
 
