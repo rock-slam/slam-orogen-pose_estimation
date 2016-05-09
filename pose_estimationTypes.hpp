@@ -22,6 +22,16 @@ struct ProcessNoise
                      angular_velocity_noise(base::Matrix3d::Constant(base::unknown<double>())) {}
 };
 
+namespace deprecated
+{
+    /** @deprecated
+     */
+    enum FilterType
+    {
+        UKF
+    };
+}
+
 }
 
 #endif

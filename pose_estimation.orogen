@@ -13,6 +13,9 @@ task_context "RBSFilter" do
     #******************************
     #***** Filter Properties ******
     #******************************
+    # Deprecated, only the UKF is available
+    property( "filter_type", "/pose_estimation/deprecated/FilterType", :UKF )
+
     property( "max_time_delta", "double", 2.0 )
 
     property( "initial_state", "/base/samples/RigidBodyState" ).
