@@ -127,6 +127,7 @@ void RBSFilter::updateState()
         base::samples::RigidBodyState body_state;
         BodyStateMeasurement::toRigidBodyState(current_state.mu, current_state.cov, body_state);
         current_body_state = body_state;
+	body_state.time = pose_estimator->getLastMeasurementTime();
 	body_state.targetFrame = _target_frame.get();
 	body_state.sourceFrame = source_frame;
 	_pose_samples.write(body_state);
