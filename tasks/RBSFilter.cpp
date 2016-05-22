@@ -63,10 +63,9 @@ void RBSFilter::handleMeasurement(const base::Time& ts, const base::samples::Rig
     }
     
     transformed_rbs.velocity = sensor2body.rotation() * transformed_rbs.velocity;
-    if(current_body_state.hasValidAngularVelocity() && !current_body_state.angular_velocity.isZero())
+    if(current_body_state.hasValidAngularVelocity())
     {
-        base::Vector3d euler_angle_velocity = base::getEuler(base::Orientation(Eigen::AngleAxisd(current_body_state.angular_velocity.norm(), current_body_state.angular_velocity.normalized())));
-        transformed_rbs.velocity -= Eigen::Vector3d(euler_angle_velocity.z(), euler_angle_velocity.y(), euler_angle_velocity.x()).cross(sensor2body.translation());
+        transformed_rbs.velocity -= current_body_state.angular_velocity.cross(sensor2body.translation());
     }
     transformed_rbs.angular_velocity = sensor2body.rotation() * transformed_rbs.angular_velocity;
 
