@@ -85,10 +85,9 @@ void OrientationEstimator::velocity_samplesTransformerCallback(const base::Time 
     {
         // transform velocity to the imu frame
         base::Vector3d velocity = velocityProviderInBody.rotation() * velocity_samples_sample.velocity;
-        if(base::isnotnan(current_angular_velocity) && !current_angular_velocity.isZero())
+        if(base::isnotnan(current_angular_velocity))
         {
-            base::Vector3d euler_angle_velocity = base::getEuler(base::Orientation(Eigen::AngleAxisd(current_angular_velocity.norm(), current_angular_velocity.normalized())));
-            velocity -= Eigen::Vector3d(euler_angle_velocity.z(), euler_angle_velocity.y(), euler_angle_velocity.x()).cross(velocityProviderInBody.translation() - imuInBody.translation());
+            velocity -= current_angular_velocity.cross(velocityProviderInBody.translation() - imuInBody.translation());
         }
 
         // add velocity measurement
