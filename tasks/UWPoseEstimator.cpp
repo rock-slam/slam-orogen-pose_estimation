@@ -118,7 +118,7 @@ void UWPoseEstimator::updateHook()
     UWPoseEstimatorBase::updateHook();
     
     // verify stream aligner status
-    verifyStreamAlignerStatus(_transformer);
+    verifyStreamAlignerStatus(_transformer, 60.0);
     
     // update and write new state
     updateState();

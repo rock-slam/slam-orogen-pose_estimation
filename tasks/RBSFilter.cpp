@@ -207,12 +207,18 @@ bool RBSFilter::resetState()
     return setupFilter();
 }
 
-void RBSFilter::verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus& status, double verification_interval)
+void RBSFilter::verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus& status, double verification_interval, 
+                                          double drop_rate_warning, double drop_rate_critical)
 {
-    verifier->verifyStreamAlignerStatus(status, aligner_stream_failures);
+    verifier->setVerificationInterval(verification_interval);
+    verifier->setDropRateWarningThreshold(drop_rate_warning);
+    verifier->setDropRateCriticalThreshold(drop_rate_critical);
+    verifier->verifyStreamAlignerStatus(status, aligner_stream_failures, critical_aligner_stream_failures);
     
     if(aligner_stream_failures > 0)
 	 new_state = TRANSFORMATION_ALIGNMENT_FAILURES;
+    if(critical_aligner_stream_failures > 0)
+        error(CRITICAL_ALIGNMENT_FAILURE);
 }
 
 
@@ -232,9 +238,8 @@ bool RBSFilter::configureHook()
     
     // stream aligner verification
     verifier.reset(new StreamAlignmentVerifier());
-    verifier->setVerificationInterval(2.0);
-    verifier->setDropRateThreshold(0.5);
     aligner_stream_failures = 0;
+    critical_aligner_stream_failures = 0;
 
     current_body_state.invalidate();
     

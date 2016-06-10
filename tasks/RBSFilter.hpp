@@ -41,6 +41,7 @@ namespace pose_estimation {
 	boost::shared_ptr<PoseEstimator> pose_estimator;
 	boost::shared_ptr<StreamAlignmentVerifier> verifier;
 	unsigned aligner_stream_failures;
+        unsigned critical_aligner_stream_failures;
         base::samples::RigidBodyState current_body_state;
 	
 	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &rbs, const MemberMask& member_mask, const transformer::Transformation& sensor2body_transformer);
@@ -57,9 +58,11 @@ namespace pose_estimation {
 	
         virtual bool resetState();
 	
-	void verifyStreamAlignerStatus(transformer::Transformer &trans, double verification_interval = 2.0) 
-				    {verifyStreamAlignerStatus(trans.getStreamAlignerStatus(), verification_interval);}
-	void verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus &status, double verification_interval = 2.0);
+	void verifyStreamAlignerStatus(transformer::Transformer &trans, double verification_interval = 2.0, 
+                                       double drop_rate_warning = 0.5, double drop_rate_critical = 1.0)
+				    {verifyStreamAlignerStatus(trans.getStreamAlignerStatus(), verification_interval, drop_rate_warning, drop_rate_critical);}
+	void verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus &status, double verification_interval = 2.0, 
+                                       double drop_rate_warning = 0.5, double drop_rate_critical = 1.0);
 
     public:
         /** TaskContext constructor for RBSFilter
