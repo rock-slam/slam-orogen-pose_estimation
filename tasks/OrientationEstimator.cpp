@@ -140,7 +140,8 @@ bool OrientationEstimator::configureHook()
     // setup stream alignment verifier
     verifier.reset(new pose_estimation::StreamAlignmentVerifier());
     verifier->setVerificationInterval(2.0);
-    verifier->setDropRateThreshold(0.5);
+    verifier->setDropRateWarningThreshold(0.5);
+    verifier->setDropRateCriticalThreshold(1.0);
 
     current_angular_velocity = Eigen::Vector3d::Zero();
 
@@ -172,9 +173,12 @@ void OrientationEstimator::updateHook()
 
     // check stream alignment status
     unsigned streams_with_alignment_failures = 0;
-    verifier->verifyStreamAlignerStatus(_transformer.getStreamAlignerStatus(), streams_with_alignment_failures);
+    unsigned streams_with_critical_alignment_failures = 0;
+    verifier->verifyStreamAlignerStatus(_transformer.getStreamAlignerStatus(), streams_with_alignment_failures, streams_with_critical_alignment_failures);
     if(streams_with_alignment_failures > 0)
         new_state = TRANSFORMATION_ALIGNMENT_FAILURES;
+    if(streams_with_critical_alignment_failures > 0)
+        error(CRITICAL_ALIGNMENT_FAILURE);
 
     // write out estimated orientation
     OrientationUKF::FilterState current_state;
