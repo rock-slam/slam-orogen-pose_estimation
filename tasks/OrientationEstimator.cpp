@@ -121,7 +121,7 @@ bool OrientationEstimator::configureHook()
 
     // setup initial state
     OrientationUKF::FilterState init_state;
-    init_state.mu = OrientationUKF::Mu::Zero();
+    init_state.mu = OrientationUKF::StateVector::Zero();
     init_state.cov = OrientationUKF::Covariance::Zero();
     // set initial orientation
     init_state.mu.block(0,0,3,1) = _initial_orientation.value();
