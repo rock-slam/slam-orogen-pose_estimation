@@ -20,28 +20,74 @@ VehiclePoseEstimator::~VehiclePoseEstimator()
 
 void VehiclePoseEstimator::orientation_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &orientation_samples_sample)
 {
-    MemberMask measurement_mask = MemberMask::Zero();
-    measurement_mask[BodyStateMemberRoll] = 1;
-    measurement_mask[BodyStateMemberPitch] = 1;
-    measurement_mask[BodyStateMemberYaw] = 1;
-    handleMeasurement(ts, orientation_samples_sample, measurement_mask, _imu2body);
+    // receive sensor to body transformation
+    Eigen::Affine3d sensorInBody;
+    if (!getSensorInBodyPose(_imu2body, ts, sensorInBody))
+        return;
+
+    if(orientation_samples_sample.hasValidOrientation() && orientation_samples_sample.hasValidOrientationCovariance())
+    {
+        predictionStep(ts);
+        try
+        {
+            Eigen::Quaterniond transformed_orientation((orientation_samples_sample.orientation * sensorInBody.inverse()).linear());
+
+            PoseUKF::OrientationMeasurement measurement;
+            measurement.mu = MTK::SO3<double>::log(transformed_orientation);
+            measurement.cov = sensorInBody.rotation() * orientation_samples_sample.cov_orientation * sensorInBody.rotation().transpose();
+            pose_estimator->integrateMeasurement(measurement);
+        }
+        catch(const std::runtime_error& e)
+        {
+            RTT::log(RTT::Error) << "Failed to add orientation measurement: " << e.what() << RTT::endlog();
+        }
+    }
+    else
+        RTT::log(RTT::Error) << "Orientation measurement contains NaN's, it will be skipped!" << RTT::endlog();
 }
 
 void VehiclePoseEstimator::position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &position_samples_sample)
 {
-    MemberMask measurement_mask = MemberMask::Zero();
-    measurement_mask[BodyStateMemberX] = 1;
-    measurement_mask[BodyStateMemberY] = 1;
-    measurement_mask[BodyStateMemberZ] = 1;
-    handleMeasurement(ts, position_samples_sample, measurement_mask);
+    if(position_samples_sample.hasValidPosition() && position_samples_sample.hasValidPositionCovariance())
+    {
+        predictionStep(ts);
+        try
+        {
+            PoseUKF::PositionMeasurement measurement;
+            measurement.mu = position_samples_sample.position;
+            measurement.cov = position_samples_sample.cov_position;
+            pose_estimator->integrateMeasurement(measurement);
+        }
+        catch(const std::runtime_error& e)
+        {
+            RTT::log(RTT::Error) << "Failed to add position measurement: " << e.what() << RTT::endlog();
+        }
+    }
+    else
+        RTT::log(RTT::Error) << "Position measurement contains NaN's, it will be skipped!" << RTT::endlog();
 }
 
 void VehiclePoseEstimator::velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &velocity_samples_sample)
 {
-    MemberMask measurement_mask = MemberMask::Zero();
-    measurement_mask[BodyStateMemberVx] = 1;
-    measurement_mask[BodyStateMemberVyaw] = 1;
-    handleMeasurement(ts, velocity_samples_sample, measurement_mask);
+    if(!base::isNaN(velocity_samples_sample.velocity.x()) && !base::isNaN(velocity_samples_sample.cov_velocity(0,0)) &&
+       !base::isNaN(velocity_samples_sample.angular_velocity.z()) && !base::isNaN(velocity_samples_sample.cov_angular_velocity(2,2)))
+    {
+        predictionStep(ts);
+        try
+        {
+            PoseUKF::XVelYawVelMeasurement measurement;
+            measurement.mu = PoseUKF::XYVelocityMeasurement::Mu(velocity_samples_sample.velocity.x(), velocity_samples_sample.angular_velocity.z());
+            measurement.cov << velocity_samples_sample.cov_velocity(0,0), 0.0,
+                               0.0, velocity_samples_sample.cov_angular_velocity(2,2);
+            pose_estimator->integrateMeasurement(measurement);
+        }
+        catch(const std::runtime_error& e)
+        {
+            RTT::log(RTT::Error) << "Failed to add velocity measurement: " << e.what() << RTT::endlog();
+        }
+    }
+    else
+        RTT::log(RTT::Error) << "Velocity measurement contains NaN's, it will be skipped!" << RTT::endlog();
 }
 
 /// The following lines are template definitions for the various state machine
@@ -71,7 +117,7 @@ void VehiclePoseEstimator::updateHook()
     verifyStreamAlignerStatus(_transformer);
     
     // update and write new state
-    updateState();
+    writeCurrentState();
 }
 void VehiclePoseEstimator::errorHook()
 {

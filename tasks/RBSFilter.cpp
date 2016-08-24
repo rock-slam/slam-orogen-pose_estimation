@@ -1,8 +1,6 @@
 /* Generated from orogen/lib/orogen/templates/tasks/Task.cpp */
 
 #include "RBSFilter.hpp"
-#include <pose_estimation/Measurement.hpp>
-#include <pose_estimation/pose_with_velocity/PoseUKF.hpp>
 #include <pose_estimation/pose_with_velocity/BodyStateMeasurement.hpp>
 
 using namespace pose_estimation;
@@ -21,111 +19,28 @@ RBSFilter::~RBSFilter()
 {
 }
 
-void RBSFilter::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& measurement, const MemberMask& member_mask, const transformer::Transformation& sensor2body_transformer)
+void RBSFilter::predictionStep(const base::Time& sample_time)
 {
-    // receive sensor to body transformation
-    Eigen::Affine3d sensor2body;
-    if (!sensor2body_transformer.get(ts, sensor2body))
-    {
-        RTT::log(RTT::Error) << "skip, have no " << sensor2body_transformer.getSourceFrame() << "2" << sensor2body_transformer.getTargetFrame() << " transformation sample!" << RTT::endlog();
-        new_state = MISSING_TRANSFORMATION;
-        return;
-    }
-    
-    base::samples::RigidBodyState transformed_rbs = measurement;
-
-    // set possible NaN's to zero to allow transformation
-    for(unsigned i = 0; i < 3; i++)
-    {
-        if(member_mask[i] == 0)
-            transformed_rbs.position[i] = 0.0;
-    }
-    for(unsigned i = 0; i < 3; i++)
-    {
-        if(member_mask[BodyStateMemberVx+i] == 0)
-            transformed_rbs.velocity[i] = 0.0;
-    }
-
-    // transform measurement in body frame
-    if(BodyStateMeasurement::hasPositionMeasurement(member_mask) && BodyStateMeasurement::hasOrientationMeasurement(member_mask))
-    {
-        transformed_rbs.setTransform(transformed_rbs.getTransform() * sensor2body.inverse());
-    }
-    else if(BodyStateMeasurement::hasPositionMeasurement(member_mask))
-    {
-        transformed_rbs.orientation = base::Orientation::Identity();
-        transformed_rbs.setTransform(transformed_rbs.getTransform() * sensor2body.inverse());
-    }
-    else if(BodyStateMeasurement::hasOrientationMeasurement(member_mask))
-    {
-        transformed_rbs.position = base::Position::Zero();
-        transformed_rbs.setTransform(transformed_rbs.getTransform() * sensor2body.inverse());
-    }
-    
-    transformed_rbs.velocity = sensor2body.rotation() * transformed_rbs.velocity;
-    if(current_body_state.hasValidAngularVelocity())
-    {
-        transformed_rbs.velocity -= current_body_state.angular_velocity.cross(sensor2body.translation());
-    }
-    transformed_rbs.angular_velocity = sensor2body.rotation() * transformed_rbs.angular_velocity;
-
-    // transform covariances
-    if(sensor2body.rotation() != Eigen::Matrix3d::Identity())
-    {
-        Eigen::Matrix3d sensor2body_rotation = sensor2body.rotation();
-        Eigen::Matrix3d sensor2body_rotation_transpose = sensor2body_rotation.transpose();
-        transformed_rbs.cov_position = sensor2body_rotation * transformed_rbs.cov_position * sensor2body_rotation_transpose;
-        transformed_rbs.cov_orientation = sensor2body_rotation * transformed_rbs.cov_orientation * sensor2body_rotation_transpose;
-        transformed_rbs.cov_velocity = sensor2body_rotation * transformed_rbs.cov_velocity * sensor2body_rotation_transpose;
-        transformed_rbs.cov_angular_velocity = sensor2body_rotation * transformed_rbs.cov_angular_velocity * sensor2body_rotation_transpose;
-    }
-    
-    handleMeasurement(ts, transformed_rbs, member_mask);
-}
-
-void RBSFilter::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyState& rbs, const MemberMask& member_mask)
-{
-    Measurement measurement;
-    BodyStateMeasurement::fromBodyStateToMeasurement(rbs, member_mask, measurement);
-
-    // enqueue new measurement
-    if(!pose_estimator->enqueueMeasurement(measurement))
-	RTT::log(RTT::Error) << "Failed to add measurement from " << rbs.sourceFrame << "." << RTT::endlog();
-}
-
-void RBSFilter::handleMeasurement(const base::Time& ts, const base::samples::RigidBodyAcceleration& rba)
-{
-    Measurement measurement;
-    measurement.time = ts;
-    measurement.mu = rba.acceleration;
-    measurement.cov = rba.cov_acceleration;
-    measurement.integration = pose_estimation::UserDefined;
-    measurement.measurement_name = "acceleration";
-
-    // enqueue new measurement
-    if(!pose_estimator->enqueueMeasurement(measurement))
-        RTT::log(RTT::Error) << "Failed to add from acceleration measurement." << RTT::endlog();
-}
-
-void RBSFilter::updateState()
-{
-    // integrate measurements
     try
     {
-	pose_estimator->integrateMeasurements();
+        pose_estimator->predictionStepFromSampleTime(sample_time);
     }
-    catch (std::runtime_error e)
+    catch(const std::runtime_error& e)
     {
-	RTT::log(RTT::Error) << "Failed to integrate measurements: " << e.what() << RTT::endlog();
+        RTT::log(RTT::Error) << "Failed to execute prediction step: " << e.what() << RTT::endlog();
+        RTT::log(RTT::Error) << "Skipping prediction step." << RTT::endlog();
     }
-    
+}
+
+void RBSFilter::writeCurrentState()
+{
     // write estimated body state
-    StateAndCovariance current_state;
-    if(pose_estimator->getEstimatedState(current_state))
+    PoseUKF::State filter_state;
+    PoseUKF::Covariance filter_state_cov;
+    if(pose_estimator->getCurrentState(filter_state, filter_state_cov))
     {
         base::samples::RigidBodyState body_state;
-        BodyStateMeasurement::toRigidBodyState(current_state.mu, current_state.cov, body_state);
-        current_body_state = body_state;
+        BodyStateMeasurement::toRigidBodyState(filter_state, filter_state_cov, body_state);
 	body_state.time = pose_estimator->getLastMeasurementTime();
 	body_state.targetFrame = _target_frame.get();
 	body_state.sourceFrame = source_frame;
@@ -169,10 +84,10 @@ bool RBSFilter::setupFilter()
     if(override_init_state.hasValidAngularVelocityCovariance())
         init_rbs.cov_angular_velocity = override_init_state.cov_angular_velocity;
 
-    StateAndCovariance init_state;
-    BodyStateMeasurement::fromRigidBodyState(init_rbs, init_state.mu, init_state.cov);
-    boost::shared_ptr<PoseUKF> ukf(new PoseUKF(init_state));
-    pose_estimator.reset(new PoseEstimator(ukf));
+    PoseUKF::State init_state;
+    PoseUKF::Covariance init_state_cov;
+    BodyStateMeasurement::fromRigidBodyState(init_rbs, init_state, init_state_cov);
+    pose_estimator.reset(new PoseUKF(init_state, init_state_cov));
     
     // setup process noise
     const ProcessNoise& process_noise = _process_noise.value();
@@ -195,7 +110,7 @@ bool RBSFilter::setupFilter()
     else
         process_noise_cov.block(9,9,3,3) = 0.0001 * base::Matrix3d::Identity();
 
-    pose_estimator->setProcessNoise(process_noise_cov);
+    pose_estimator->setProcessNoiseCovariance(process_noise_cov);
     
     pose_estimator->setMaxTimeDelta(_max_time_delta.get());
 
@@ -221,6 +136,18 @@ void RBSFilter::verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus&
         error(CRITICAL_ALIGNMENT_FAILURE);
 }
 
+bool RBSFilter::getSensorInBodyPose(const transformer::Transformation& sensor2body_transformer, const base::Time& ts, Eigen::Affine3d& sensorInBody)
+{
+    // receive sensor to body transformation
+    if (!sensor2body_transformer.get(ts, sensorInBody))
+    {
+        RTT::log(RTT::Error) << "skip, have no " << sensor2body_transformer.getSourceFrame() << "In" << sensor2body_transformer.getTargetFrame() << " transformation sample!" << RTT::endlog();
+        new_state = MISSING_TRANSFORMATION;
+        return false;
+    }
+    return true;
+}
+
 
 /// The following lines are template definitions for the various state machine
 // hooks defined by Orocos::RTT. See RBSFilter.hpp for more detailed
@@ -240,8 +167,6 @@ bool RBSFilter::configureHook()
     verifier.reset(new StreamAlignmentVerifier());
     aligner_stream_failures = 0;
     critical_aligner_stream_failures = 0;
-
-    current_body_state.invalidate();
     
     if(!setupFilter())
         return false;
