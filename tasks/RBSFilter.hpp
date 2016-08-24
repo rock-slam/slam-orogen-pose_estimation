@@ -1,19 +1,20 @@
 /* Generated from orogen/lib/orogen/templates/tasks/Task.hpp */
 
-#ifndef POSE_ESTIMATION_BASETASK_TASK_HPP
-#define POSE_ESTIMATION_BASETASK_TASK_HPP
+#ifndef POSE_ESTIMATION_RBSFilter_TASK_HPP
+#define POSE_ESTIMATION_RBSFilter_TASK_HPP
 
-#include "pose_estimation/BaseTaskBase.hpp"
+#include "pose_estimation/RBSFilterBase.hpp"
 
 #include <boost/shared_ptr.hpp>
-#include <pose_estimation/PoseEstimator.hpp>
-#include <pose_estimation/Measurement.hpp>
+#include <pose_estimation/pose_with_velocity/PoseUKF.hpp>
 #include <transformer/Transformer.hpp>
 #include <pose_estimationTypes.hpp>
+#include <pose_estimation/StreamAlignmentVerifier.hpp>
+#include <base/samples/RigidBodyAcceleration.hpp>
 
 namespace pose_estimation {
 
-    /*! \class BaseTask 
+    /*! \class RBSFilter
      * \brief The task context provides and requires services. It uses an ExecutionEngine to perform its functions.
      * Essential interfaces are operations, data flow ports and properties. These interfaces have been defined using the oroGen specification.
      * In order to modify the interfaces you should (re)use oroGen and rely on the associated workflow.
@@ -22,61 +23,80 @@ namespace pose_estimation {
      * The name of a TaskContext is primarily defined via:
      \verbatim
      deployment 'deployment_name'
-         task('custom_task_name','pose_estimation::BaseTask')
+         task('custom_task_name','pose_estimation::RBSFilter')
      end
      \endverbatim
      *  It can be dynamically adapted when the deployment is called with a prefix argument. 
      */
-    class BaseTask : public BaseTaskBase
+
+    class RBSFilter : public RBSFilterBase
     {
-	friend class BaseTaskBase;
+	friend class RBSFilterBase;
     protected:
 	States last_state;
 	States new_state;
 	std::string source_frame;
-	boost::shared_ptr<PoseEstimator> pose_estimator;
-	std::map<std::string, size_t> aligner_samples_received;
-	std::map<std::string, size_t> aligner_samples_dropped;
-	base::Time aligner_last_verified;
+	boost::shared_ptr<PoseUKF> pose_estimator;
+	boost::shared_ptr<StreamAlignmentVerifier> verifier;
 	unsigned aligner_stream_failures;
-        base::samples::RigidBodyState current_body_state;
-	
-	
-	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config, const transformer::Transformation& sensor2body_transformer);
-	void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const MeasurementConfig &config);
-        void handleMeasurement(const base::Time &ts, const base::samples::RigidBodyState &measurement, const base::samples::RigidBodyAcceleration &measurement_acc, const MeasurementConfig &config);
+        unsigned critical_aligner_stream_failures;
 
+        /** Initializes the filter with a valid state and covariance (Given by the _initial_state property).
+         *  Also sets the process noise (_process_noise property).
+         */
         bool setupFilter();
+
+        /** Applies a prediction step of the filter with a given current sample time.
+         * The delta time step is the difference between the last sample time and the current one.
+         */
+        void predictionStep(const base::Time& sample_time);
 	
-	/** Updates and writes the current robot pose and task state.
+	/** Writes out the current robot pose and task state.
 	 * The seperation in this method ensures that this is done at the end of the update hook
 	 * of a derivated task. 
 	 */
-	void updateState();
+	void writeCurrentState();
 	
+        /** Resets the filter to the initial state by calling setupFilter()
+         */
         virtual bool resetState();
 	
-	void verifyStreamAlignerStatus(transformer::Transformer &trans, double verification_interval = 2.0) 
-				    {verifyStreamAlignerStatus(trans.getStreamAlignerStatus(), verification_interval);}
-	void verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus &status, double verification_interval = 2.0);
+        /** Checks the current stream aligner sample drop rates of the aligned input ports.
+         * Drops might happen due to missaligned system times, high delays or sensor failuers.
+         *
+         * When the drop_rate_warning is reached on at least one stream the task will switch to the runtime state
+         * TRANSFORMATION_ALIGNMENT_FAILURES. The task will continue to work.
+         * When the drop_rate_critical is reached on at least one stream the task will switch to the error state
+         * CRITICAL_ALIGNMENT_FAILURE. The task will be in an error state.
+         */
+	void verifyStreamAlignerStatus(transformer::Transformer &trans, double verification_interval = 2.0, 
+                                       double drop_rate_warning = 0.5, double drop_rate_critical = 1.0)
+				    {verifyStreamAlignerStatus(trans.getStreamAlignerStatus(), verification_interval, drop_rate_warning, drop_rate_critical);}
+	void verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus &status, double verification_interval = 2.0, 
+                                       double drop_rate_warning = 0.5, double drop_rate_critical = 1.0);
+
+        /** Tries to get a transformation from the given transformer at time ts
+         * @returns true if successful
+         */
+        bool getSensorInBodyPose(const transformer::Transformation& sensor2body_transformer, const base::Time &ts, Eigen::Affine3d& sensorInBody);
 
     public:
-        /** TaskContext constructor for BaseTask
+        /** TaskContext constructor for RBSFilter
          * \param name Name of the task. This name needs to be unique to make it identifiable via nameservices.
          * \param initial_state The initial TaskState of the TaskContext. Default is Stopped state.
          */
-        BaseTask(std::string const& name = "pose_estimation::BaseTask");
+        RBSFilter(std::string const& name = "pose_estimation::RBSFilter");
 
-        /** TaskContext constructor for BaseTask 
+        /** TaskContext constructor for RBSFilter
          * \param name Name of the task. This name needs to be unique to make it identifiable for nameservices. 
          * \param engine The RTT Execution engine to be used for this task, which serialises the execution of all commands, programs, state machines and incoming events for a task. 
          * 
          */
-        BaseTask(std::string const& name, RTT::ExecutionEngine* engine);
+        RBSFilter(std::string const& name, RTT::ExecutionEngine* engine);
 
-        /** Default deconstructor of BaseTask
+        /** Default deconstructor of RBSFilter
          */
-	~BaseTask();
+	~RBSFilter();
 
         /** This hook is called by Orocos when the state machine transitions
          * from PreOperational to Stopped. If it returns false, then the

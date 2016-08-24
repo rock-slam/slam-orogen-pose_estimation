@@ -20,84 +20,245 @@ UWPoseEstimator::~UWPoseEstimator()
 
 void UWPoseEstimator::acceleration_samplesTransformerCallback(const base::Time& ts, const base::samples::RigidBodyAcceleration& acceleration_samples_sample)
 {
-    MeasurementConfig config;
-    config.measurement_mask[BodyStateMemberAx] = 1;
-    config.measurement_mask[BodyStateMemberAy] = 1;
-    config.measurement_mask[BodyStateMemberAz] = 1;
-    base::samples::RigidBodyState aux;
-    handleMeasurement(ts, aux, acceleration_samples_sample, config);
+    if(acceleration_samples_sample.acceleration.allFinite() && acceleration_samples_sample.cov_acceleration.allFinite())
+    {
+        predictionStep(ts);
+        try
+        {
+            PoseUKF::AccelerationMeasurement measurement;
+            measurement.mu = acceleration_samples_sample.acceleration;
+            measurement.cov = acceleration_samples_sample.cov_acceleration;
+            pose_estimator->integrateMeasurement(measurement);
+        }
+        catch(const std::runtime_error& e)
+        {
+            RTT::log(RTT::Error) << "Failed to add acceleration measurement: " << e.what() << RTT::endlog();
+        }
+    }
+    else
+        RTT::log(RTT::Error) << "Acceleration measurement contains NaN's, it will be skipped!" << RTT::endlog();
 }
 
 void UWPoseEstimator::depth_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &depth_samples_sample)
 {
-    MeasurementConfig config;
-    config.measurement_mask[BodyStateMemberZ] = 1;
-    handleMeasurement(ts, depth_samples_sample, config, _pressure_sensor2body);
+    // receive sensor to body transformation
+    Eigen::Affine3d sensorInBody;
+    if (!getSensorInBodyPose(_pressure_sensor2body, ts, sensorInBody))
+        return;
+
+    if(!base::isNaN(depth_samples_sample.position.z()) && !base::isNaN(depth_samples_sample.cov_position(2,2)))
+    {
+        predictionStep(ts);
+        try
+        {
+            // apply sensorInBody transformation to measurement
+            Eigen::Matrix<double, 1, 1> depth;
+            depth << depth_samples_sample.position.z() - sensorInBody.translation().z();
+
+            PoseUKF::ZMeasurement measurement;
+            measurement.mu = depth;
+            measurement.cov(0,0) = depth_samples_sample.cov_position(2,2);
+            pose_estimator->integrateMeasurement(measurement);
+        }
+        catch(const std::runtime_error& e)
+        {
+            RTT::log(RTT::Error) << "Failed to add depth measurement: " << e.what() << RTT::endlog();
+        }
+    }
+    else
+        RTT::log(RTT::Error) << "Depth measurement contains NaN's, it will be skipped!" << RTT::endlog();
 }
 
 void UWPoseEstimator::orientation_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &orientation_samples_sample)
 {
-    MeasurementConfig config;
-    config.measurement_mask[BodyStateMemberRoll] = 1;
-    config.measurement_mask[BodyStateMemberPitch] = 1;
-    config.measurement_mask[BodyStateMemberYaw] = 1;
-    handleMeasurement(ts, orientation_samples_sample, config, _imu2body);
+    // receive sensor to body transformation
+    Eigen::Affine3d sensorInBody;
+    if (!getSensorInBodyPose(_imu2body, ts, sensorInBody))
+        return;
+
+    if(orientation_samples_sample.hasValidOrientation() && orientation_samples_sample.hasValidOrientationCovariance())
+    {
+        predictionStep(ts);
+        try
+        {
+            // apply sensorInBody transformation to measurement
+            Eigen::Quaterniond transformed_orientation((orientation_samples_sample.orientation * sensorInBody.inverse()).linear());
+
+            PoseUKF::OrientationMeasurement measurement;
+            measurement.mu = MTK::SO3<double>::log(transformed_orientation);
+            measurement.cov = sensorInBody.rotation() * orientation_samples_sample.cov_orientation * sensorInBody.rotation().transpose();
+            pose_estimator->integrateMeasurement(measurement);
+        }
+        catch(const std::runtime_error& e)
+        {
+            RTT::log(RTT::Error) << "Failed to add orientation measurement: " << e.what() << RTT::endlog();
+        }
+    }
+    else
+        RTT::log(RTT::Error) << "Orientation measurement contains NaN's, it will be skipped!" << RTT::endlog();
 }
 
 void UWPoseEstimator::lbl_position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &lbl_position_samples_sample)
 {
-    MeasurementConfig config;
-    config.measurement_mask[BodyStateMemberX] = 1;
-    config.measurement_mask[BodyStateMemberY] = 1;
-    config.measurement_mask[BodyStateMemberZ] = 1;
-    handleMeasurement(ts, lbl_position_samples_sample, config, _lbl2body);
+    // receive sensor to body transformation
+    Eigen::Affine3d sensorInBody;
+    if (!getSensorInBodyPose(_lbl2body, ts, sensorInBody))
+        return;
+
+    if(lbl_position_samples_sample.hasValidPosition() && lbl_position_samples_sample.hasValidPositionCovariance())
+    {
+        predictionStep(ts);
+        try
+        {
+            // apply sensorInBody transformation to measurement
+            Eigen::Affine3d modemInWorld = Eigen::Affine3d::Identity();
+            modemInWorld.translation() = lbl_position_samples_sample.position;
+            Eigen::Affine3d bodyInWorld = modemInWorld * sensorInBody.inverse();
+
+            PoseUKF::PositionMeasurement measurement;
+            measurement.mu = bodyInWorld.translation();
+            measurement.cov = sensorInBody.rotation() * lbl_position_samples_sample.cov_position * sensorInBody.rotation().transpose();
+            pose_estimator->integrateMeasurement(measurement);
+        }
+        catch(const std::runtime_error& e)
+        {
+            RTT::log(RTT::Error) << "Failed to add LBL/USBL measurement: " << e.what() << RTT::endlog();
+        }
+    }
+    else
+        RTT::log(RTT::Error) << "LBL/USBL measurement contains NaN's, it will be skipped!" << RTT::endlog();
 }
 
 void UWPoseEstimator::xy_position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &xy_position_samples_sample)
 {
-    MeasurementConfig config;
-    config.measurement_mask[BodyStateMemberX] = 1;
-    config.measurement_mask[BodyStateMemberY] = 1;
-    handleMeasurement(ts, xy_position_samples_sample, config);
+    if(xy_position_samples_sample.position.block(0,0,2,1).allFinite() && xy_position_samples_sample.cov_position.block(0,0,2,2).allFinite())
+    {
+        predictionStep(ts);
+        try
+        {
+            PoseUKF::XYMeasurement measurement;
+            measurement.mu = xy_position_samples_sample.position.block(0,0,2,1);
+            measurement.cov = xy_position_samples_sample.cov_position.block(0,0,2,2);
+            pose_estimator->integrateMeasurement(measurement);
+        }
+        catch(const std::runtime_error& e)
+        {
+            RTT::log(RTT::Error) << "Failed to add XY position measurement: " << e.what() << RTT::endlog();
+        }
+    }
+    else
+        RTT::log(RTT::Error) << "XY position measurement contains NaN's, it will be skipped!" << RTT::endlog();
 }
 
 void UWPoseEstimator::dvl_velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &dvl_velocity_samples_sample)
 {
-    MeasurementConfig config;
-    config.measurement_mask[BodyStateMemberVx] = 1;
-    config.measurement_mask[BodyStateMemberVy] = 1;
-    config.measurement_mask[BodyStateMemberVz] = 1;
-    handleMeasurement(ts, dvl_velocity_samples_sample, config, _dvl2body);
+    // receive sensor to body transformation
+    Eigen::Affine3d sensorInBody;
+    if (!getSensorInBodyPose(_dvl2body, ts, sensorInBody))
+        return;
+
+    if(dvl_velocity_samples_sample.hasValidVelocity() && dvl_velocity_samples_sample.hasValidVelocityCovariance())
+    {
+        predictionStep(ts);
+        try
+        {
+            // apply sensorInBody transformation to measurement, assuming that the velocity is expressed in the DVL device frame
+            base::Vector3d velocity = sensorInBody.rotation() * dvl_velocity_samples_sample.velocity;
+            PoseUKF::State current_state;
+            if(pose_estimator->getCurrentState(current_state))
+            {
+                velocity -= current_state.angular_velocity.cross(sensorInBody.translation());
+            }
+
+            // apply new velocity measurement
+            PoseUKF::VelocityMeasurement measurement;
+            measurement.mu = velocity;
+            measurement.cov = sensorInBody.rotation() * dvl_velocity_samples_sample.cov_velocity * sensorInBody.rotation().transpose();
+            pose_estimator->integrateMeasurement(measurement);
+        }
+        catch(const std::runtime_error& e)
+        {
+            RTT::log(RTT::Error) << "Failed to add DVL measurement: " << e.what() << RTT::endlog();
+        }
+    }
+    else
+        RTT::log(RTT::Info) << "DVL measurement contains NaN's, it will be skipped!" << RTT::endlog();
 }
 
 void UWPoseEstimator::model_velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &model_velocity_samples_sample)
 {
-    MeasurementConfig config;
-    config.measurement_mask[BodyStateMemberVx] = 1;
-    config.measurement_mask[BodyStateMemberVy] = 1;
-    handleMeasurement(ts, model_velocity_samples_sample, config);
+    if(model_velocity_samples_sample.velocity.block(0,0,2,1).allFinite() && model_velocity_samples_sample.cov_velocity.block(0,0,2,2).allFinite())
+    {
+        predictionStep(ts);
+        try
+        {
+            PoseUKF::XYVelocityMeasurement measurement;
+            measurement.mu = model_velocity_samples_sample.velocity.block(0,0,2,1);
+            measurement.cov = model_velocity_samples_sample.cov_velocity.block(0,0,2,2);
+            pose_estimator->integrateMeasurement(measurement);
+        }
+        catch(const std::runtime_error& e)
+        {
+            RTT::log(RTT::Error) << "Failed to add model velocity measurement: " << e.what() << RTT::endlog();
+        }
+    }
+    else
+        RTT::log(RTT::Error) << "Model position measurement contains NaN's, it will be skipped!" << RTT::endlog();
 }
-
 
 void UWPoseEstimator::gps_position_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &gps_position_samples_sample)
 {
-  MeasurementConfig config;
-  config.measurement_mask[BodyStateMemberX] = 1;
-  config.measurement_mask[BodyStateMemberY] = 1;
-  
-  handleMeasurement(ts, gps_position_samples_sample, config,  _gps2body);
-  
-}
+    // receive sensor to body transformation
+    Eigen::Affine3d sensorInBody;
+    if (!getSensorInBodyPose(_gps2body, ts, sensorInBody))
+        return;
 
+    if(gps_position_samples_sample.position.block(0,0,2,1).allFinite() && gps_position_samples_sample.cov_position.block(0,0,2,2).allFinite())
+    {
+        predictionStep(ts);
+        try
+        {
+            // apply sensorInBody transformation to measurement
+            Eigen::Affine3d gpsInWorld = Eigen::Affine3d::Identity();
+            gpsInWorld.translation() = Eigen::Vector3d(gps_position_samples_sample.position.x(), gps_position_samples_sample.position.y(), 0.0);
+            Eigen::Affine3d bodyInWorld = gpsInWorld * sensorInBody.inverse();
+
+            Eigen::Quaterniond rotation(sensorInBody.rotation());
+            Eigen::Matrix2d yaw_rot = Eigen::Rotation2Dd(base::getYaw(rotation)).toRotationMatrix();
+
+            PoseUKF::XYMeasurement measurement;
+            measurement.mu = bodyInWorld.translation().block(0,0,2,1);
+            measurement.cov = yaw_rot * gps_position_samples_sample.cov_position.block(0,0,2,2) * yaw_rot.transpose();
+            pose_estimator->integrateMeasurement(measurement);
+        }
+        catch(const std::runtime_error& e)
+        {
+            RTT::log(RTT::Error) << "Failed to add GPS measurement: " << e.what() << RTT::endlog();
+        }
+    }
+    else
+        RTT::log(RTT::Error) << "GPS position measurement contains NaN's, it will be skipped!" << RTT::endlog();
+}
 
 void UWPoseEstimator::xyz_position_samplesTransformerCallback( const base::Time &ts, const ::base::samples::RigidBodyState &xyz_position_samples_sample)
 {
-  MeasurementConfig config;
-  config.measurement_mask[BodyStateMemberX] = 1;
-  config.measurement_mask[BodyStateMemberY] = 1;
-  config.measurement_mask[BodyStateMemberZ] = 1;
-  
-  handleMeasurement(ts, xyz_position_samples_sample, config);
+    if(xyz_position_samples_sample.hasValidPosition() && xyz_position_samples_sample.hasValidPositionCovariance())
+    {
+        predictionStep(ts);
+        try
+        {
+            PoseUKF::PositionMeasurement measurement;
+            measurement.mu = xyz_position_samples_sample.position;
+            measurement.cov = xyz_position_samples_sample.cov_position;
+            pose_estimator->integrateMeasurement(measurement);
+        }
+        catch(const std::runtime_error& e)
+        {
+            RTT::log(RTT::Error) << "Failed to add XYZ position measurement: " << e.what() << RTT::endlog();
+        }
+    }
+    else
+        RTT::log(RTT::Error) << "XYZ position measurement contains NaN's, it will be skipped!" << RTT::endlog();
 }
   
 /// The following lines are template definitions for the various state machine
@@ -124,10 +285,10 @@ void UWPoseEstimator::updateHook()
     UWPoseEstimatorBase::updateHook();
     
     // verify stream aligner status
-    verifyStreamAlignerStatus(_transformer);
+    verifyStreamAlignerStatus(_transformer, 60.0);
     
     // update and write new state
-    updateState();
+    writeCurrentState();
 }
 void UWPoseEstimator::errorHook()
 {

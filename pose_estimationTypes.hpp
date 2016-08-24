@@ -3,19 +3,11 @@
 
 #include <vector>
 #include <string>
-#include <pose_estimation/Measurement.hpp>
 #include <base/Eigen.hpp>
 #include <base/Float.hpp>
 
 namespace pose_estimation
 {
-    
-struct MeasurementConfig
-{
-    base::VectorXd measurement_mask;
-
-    MeasurementConfig() : measurement_mask(MEASUREMENT_SIZE, 1) {measurement_mask.setZero();}
-};
 
 struct ProcessNoise
 {
@@ -29,6 +21,16 @@ struct ProcessNoise
                      velocity_noise(base::Matrix3d::Constant(base::unknown<double>())),
                      angular_velocity_noise(base::Matrix3d::Constant(base::unknown<double>())) {}
 };
+
+namespace deprecated
+{
+    /** @deprecated
+     */
+    enum FilterType
+    {
+        UKF
+    };
+}
 
 }
 
