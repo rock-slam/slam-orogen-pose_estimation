@@ -5,7 +5,7 @@
 
 #include "pose_estimation/OrientationEstimatorBase.hpp"
 #include <boost/shared_ptr.hpp>
-#include <pose_estimation/PoseEstimator.hpp>
+#include <pose_estimation/orientation_estimator/OrientationUKF.hpp>
 #include <pose_estimation/Measurement.hpp>
 #include <pose_estimation/StreamAlignmentVerifier.hpp>
 
@@ -29,7 +29,7 @@ namespace pose_estimation {
     {
 	friend class OrientationEstimatorBase;
     protected:
-        boost::shared_ptr<pose_estimation::PoseEstimator> pose_estimator;
+        boost::shared_ptr<pose_estimation::OrientationUKF> orientation_estimator;
         boost::shared_ptr<pose_estimation::StreamAlignmentVerifier> verifier;
         Eigen::Vector3d current_angular_velocity;
         States last_state;
@@ -43,6 +43,11 @@ namespace pose_estimation {
         /** resets the current heading, optimally to the true north
          */
         virtual bool resetHeading(double heading);
+
+        /** Applies a prediction step of the filter with a given current sample time.
+         * The delta time step is the difference between the last sample time and the current one.
+         */
+        void predictionStep(const base::Time& sample_time);
 
     public:
         /** TaskContext constructor for OrientationEstimator
