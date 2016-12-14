@@ -38,6 +38,7 @@ namespace pose_estimation {
 	std::string source_frame;
 	boost::shared_ptr<PoseUKF> pose_estimator;
 	boost::shared_ptr<StreamAlignmentVerifier> verifier;
+        bool filter_state_changed;
 	unsigned aligner_stream_failures;
         unsigned critical_aligner_stream_failures;
 
