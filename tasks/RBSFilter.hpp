@@ -31,15 +31,15 @@ namespace pose_estimation {
 
     class RBSFilter : public RBSFilterBase
     {
-	friend class RBSFilterBase;
+        friend class RBSFilterBase;
     protected:
-	States last_state;
-	States new_state;
-	std::string source_frame;
-	boost::shared_ptr<PoseUKF> pose_estimator;
-	boost::shared_ptr<StreamAlignmentVerifier> verifier;
-        bool filter_state_changed;
-	unsigned aligner_stream_failures;
+        States last_state;
+        States new_state;
+        std::string source_frame;
+        boost::shared_ptr<PoseUKF> pose_estimator;
+        boost::shared_ptr<StreamAlignmentVerifier> verifier;
+        base::Time last_sample_time;
+        unsigned aligner_stream_failures;
         unsigned critical_aligner_stream_failures;
 
         /** Initializes the filter with a valid state and covariance (Given by the _initial_state property).
@@ -51,17 +51,17 @@ namespace pose_estimation {
          * The delta time step is the difference between the last sample time and the current one.
          */
         void predictionStep(const base::Time& sample_time);
-	
-	/** Writes out the current robot pose and task state.
-	 * The seperation in this method ensures that this is done at the end of the update hook
-	 * of a derivated task. 
-	 */
-	void writeCurrentState();
-	
+
+        /** Writes out the current robot pose and task state.
+         * The seperation in this method ensures that this is done at the end of the update hook
+         * of a derivated task.
+         */
+        void writeCurrentState();
+
         /** Resets the filter to the initial state by calling setupFilter()
          */
         virtual bool resetState();
-	
+
         /** Checks the current stream aligner sample drop rates of the aligned input ports.
          * Drops might happen due to missaligned system times, high delays or sensor failuers.
          *
@@ -70,10 +70,10 @@ namespace pose_estimation {
          * When the drop_rate_critical is reached on at least one stream the task will switch to the error state
          * CRITICAL_ALIGNMENT_FAILURE. The task will be in an error state.
          */
-	void verifyStreamAlignerStatus(transformer::Transformer &trans, double verification_interval = 2.0, 
-                                       double drop_rate_warning = 0.5, double drop_rate_critical = 1.0)
-				    {verifyStreamAlignerStatus(trans.getStreamAlignerStatus(), verification_interval, drop_rate_warning, drop_rate_critical);}
-	void verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus &status, double verification_interval = 2.0, 
+        void verifyStreamAlignerStatus(transformer::Transformer &trans, double verification_interval = 2.0,
+                                        double drop_rate_warning = 0.5, double drop_rate_critical = 1.0)
+                                    {verifyStreamAlignerStatus(trans.getStreamAlignerStatus(), verification_interval, drop_rate_warning, drop_rate_critical);}
+        void verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus &status, double verification_interval = 2.0,
                                        double drop_rate_warning = 0.5, double drop_rate_critical = 1.0);
 
         /** Tries to get a transformation from the given transformer at time ts
@@ -97,7 +97,7 @@ namespace pose_estimation {
 
         /** Default deconstructor of RBSFilter
          */
-	~RBSFilter();
+        ~RBSFilter();
 
         /** This hook is called by Orocos when the state machine transitions
          * from PreOperational to Stopped. If it returns false, then the

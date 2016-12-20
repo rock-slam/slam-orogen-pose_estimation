@@ -24,7 +24,6 @@ void RBSFilter::predictionStep(const base::Time& sample_time)
     try
     {
         pose_estimator->predictionStepFromSampleTime(sample_time);
-        filter_state_changed = true;
     }
     catch(const std::runtime_error& e)
     {
@@ -38,15 +37,16 @@ void RBSFilter::writeCurrentState()
     // write estimated body state
     PoseUKF::State filter_state;
     PoseUKF::Covariance filter_state_cov;
-    if(filter_state_changed && pose_estimator->getCurrentState(filter_state, filter_state_cov))
+    base::Time current_sample_time = pose_estimator->getLastMeasurementTime();
+    if(current_sample_time > last_sample_time && pose_estimator->getCurrentState(filter_state, filter_state_cov))
     {
         base::samples::RigidBodyState body_state;
         BodyStateMeasurement::toRigidBodyState(filter_state, filter_state_cov, body_state);
-	body_state.time = pose_estimator->getLastMeasurementTime();
-	body_state.targetFrame = _target_frame.get();
-	body_state.sourceFrame = source_frame;
-	_pose_samples.write(body_state);
-        filter_state_changed = false;
+        body_state.time = current_sample_time;
+        body_state.targetFrame = _target_frame.get();
+        body_state.sourceFrame = source_frame;
+        _pose_samples.write(body_state);
+        last_sample_time = current_sample_time;
     }
     
     // write task state if it has changed
@@ -164,7 +164,7 @@ bool RBSFilter::configureHook()
     new_state = RUNNING;
     // the source frame should be overwritten in the derived task
     source_frame = "body";
-    filter_state_changed = false;
+    last_sample_time = base::Time();
     
     // stream aligner verification
     verifier.reset(new StreamAlignmentVerifier());
