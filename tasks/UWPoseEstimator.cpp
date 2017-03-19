@@ -260,6 +260,19 @@ void UWPoseEstimator::xyz_position_samplesTransformerCallback( const base::Time 
     else
         RTT::log(RTT::Error) << "XYZ position measurement contains NaN's, it will be skipped!" << RTT::endlog();
 }
+
+bool UWPoseEstimator::setTransformer_max_latency(double value)
+{
+    if (pose_estimation::UWPoseEstimatorBase::setTransformer_max_latency(value))
+    {
+        _transformer.setTimeout( base::Time::fromSeconds(value) );
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
   
 /// The following lines are template definitions for the various state machine
 // hooks defined by Orocos::RTT. See UWPoseEstimator.hpp for more detailed
