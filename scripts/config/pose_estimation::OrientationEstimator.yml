@@ -1,0 +1,84 @@
+--- name:default
+# Filter configuration
+filter_config:
+  acceleration:
+    randomwalk:
+      data:
+      - 0.0008800830
+      - 0.0008639638
+      - 0.0008607090
+    bias_offset:
+      data:
+      - 0.0
+      - 0.0
+      - 0.0
+    bias_instability:
+      data:
+      - 0.000552634
+      - 0.0005539438
+      - 0.000537089
+    bias_tau: 600.0
+  rotation_rate:
+    randomwalk:
+      data:
+      - 2.918697e-06
+      - 2.797721e-06
+      - 2.833120e-06
+    bias_offset:
+      data:
+      - 0.0
+      - 0.0
+      - 0.0
+    bias_instability:
+      data:
+       - 5.881076e-07
+       - 6.79574e-07
+       - 4.50008e-07
+    bias_tau: 600.0
+  velocity_diag:
+    data:
+    - 0.0625
+    - 0.0625
+    - 0.0625
+  location: # RIC Bremen
+    latitude: 0.92698121
+    longitude: 0.154595663
+    altitude: 2.2
+
+# The initial orientation in euler angles
+initial_orientation:
+  data:
+  - 0.0
+  - 0.0
+  - 1.1096 # 63.5° in the world frame
+# The initial covariance diagonal
+initial_orientation_cov_diag:
+  data:
+  - 0.0256
+  - 0.0256
+  - 0.0256
+#  Maximum time delta of a prediction step
+max_time_delta: 2.0
+
+# the global name that should be used for the internal body frame
+body_frame: body
+# The target frame in the generated poses. The source frame is the body frame (as declared in the transformer configuration)
+target_frame: world
+# the global name that should be used for the internal imu frame
+imu_frame: imu
+# Time in s between imu_sensor_samples readings
+imu_sensor_samples_period: 0.01
+# the global name that should be used for the internal velocity_provider frame
+velocity_provider_frame: dvl
+# Time in s between velocity_samples readings
+velocity_samples_period: 0.1
+# Maximum time in seconds the transformer will wait until it starts dropping samples
+transformer_max_latency: 0.05
+# Minimum system time in seconds between two updates of the status ports
+transformer_status_period: 1.0
+
+--- name:static_log
+# the global name that should be used for the internal velocity_provider frame
+velocity_provider_frame: imu
+# Time in s between velocity_samples readings
+velocity_samples_period: 0.01
