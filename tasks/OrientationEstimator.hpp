@@ -6,6 +6,7 @@
 #include "pose_estimation/OrientationEstimatorBase.hpp"
 #include <boost/shared_ptr.hpp>
 #include <pose_estimation/orientation_estimator/OrientationUKF.hpp>
+#include <pose_estimation/orientation_estimator/OrientationUKFConfig.hpp>
 #include <pose_estimation/Measurement.hpp>
 #include <pose_estimation/StreamAlignmentVerifier.hpp>
 
@@ -31,14 +32,15 @@ namespace pose_estimation {
     protected:
         boost::shared_ptr<pose_estimation::OrientationUKF> orientation_estimator;
         boost::shared_ptr<pose_estimation::StreamAlignmentVerifier> verifier;
-        Eigen::Vector3d current_angular_velocity;
+        Eigen::Affine3d imu_in_body;
+        Eigen::Matrix3d cov_angular_velocity;
+        Eigen::Matrix3d cov_acceleration;
         States last_state;
         States new_state;
 
 
         virtual void imu_sensor_samplesTransformerCallback(const base::Time &ts, const ::base::samples::IMUSensors &imu_sensor_samples_sample);
         virtual void velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &velocity_samples_sample);
-
 
         /** resets the current heading, optimally to the true north
          */
@@ -48,6 +50,10 @@ namespace pose_estimation {
          * The delta time step is the difference between the last sample time and the current one.
          */
         void predictionStep(const base::Time& sample_time);
+
+        bool initializeFilter(const Eigen::Quaterniond& orientation, const Eigen::Matrix3d& orientation_cov, const OrientationUKFConfig& filter_config);
+
+        bool setProcessNoise(const OrientationUKFConfig& filter_config);
 
     public:
         /** TaskContext constructor for OrientationEstimator

@@ -16,8 +16,11 @@ task_context "OrientationEstimator" do
     # Maximum time delta of a prediction step
     property( "max_time_delta", "double", 2.0 )
 
-    # The initial orientation in euler angles, NaN values will be ignored.
+    # The initial orientation in euler angles
     property( "initial_orientation", "/base/Vector3d" )
+
+    # The initial covariance diagonal
+    property( "initial_orientation_cov_diag", "/base/Vector3d" )
 
     # Filter configuration
     property( "filter_config", "/pose_estimation/OrientationUKFConfig" )
@@ -42,8 +45,8 @@ task_context "OrientationEstimator" do
     # Timestamped samples of the current estimated orientation and velocity of the robot.
     output_port( "orientation_samples", "/base/samples/RigidBodyState" )
 
-    output_port( "bias_gyro", "base::Vector3d")
-    output_port( "bias_acc", "base::Vector3d")
+    # Secondary filter states
+    output_port( "secondary_states", "/pose_estimation/OrientationUKFSecondaryStates")
 
     #******************************
     #** Aggregator Parameters *****

@@ -5,6 +5,7 @@
 #include <string>
 #include <base/Eigen.hpp>
 #include <base/Float.hpp>
+#include <base/Time.hpp>
 
 namespace pose_estimation
 {
@@ -20,6 +21,15 @@ struct ProcessNoise
                      orientation_noise(base::Matrix3d::Constant(base::unknown<double>())),
                      velocity_noise(base::Matrix3d::Constant(base::unknown<double>())),
                      angular_velocity_noise(base::Matrix3d::Constant(base::unknown<double>())) {}
+};
+
+struct OrientationUKFSecondaryStates
+{
+    base::Time time;
+    base::Vector3d bias_gyro;
+    base::Matrix3d cov_bias_gyro;
+    base::Vector3d bias_acc;
+    base::Matrix3d cov_bias_acc;
 };
 
 namespace deprecated

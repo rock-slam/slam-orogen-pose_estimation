@@ -1,6 +1,7 @@
 /* Generated from orogen/lib/orogen/templates/tasks/Task.cpp */
 
 #include "OrientationEstimator.hpp"
+#include "pose_estimationTypes.hpp"
 
 using namespace pose_estimation;
 
@@ -20,50 +21,33 @@ OrientationEstimator::~OrientationEstimator()
 
 void OrientationEstimator::imu_sensor_samplesTransformerCallback(const base::Time &ts, const ::base::samples::IMUSensors &imu_sensor_samples_sample)
 {
-    // receive sensor to body transformation
-    Eigen::Affine3d imuInBody;
-    if (!_imu2body.get(ts, imuInBody))
-    {
-        RTT::log(RTT::Error) << "skip, couldn't receive a valid imu-in-body transformation sample!" << RTT::endlog();
-        new_state = MISSING_TRANSFORMATION;
-        return;
-    }
-
     // do prediction step
     predictionStep(ts);
 
-    if(imu_sensor_samples_sample.gyro.allFinite())
+    try
     {
-        try
-        {
-            OrientationUKF::RotationRate measurement;
-            current_angular_velocity = imuInBody.rotation() * imu_sensor_samples_sample.gyro;
-            measurement.mu = current_angular_velocity;
-            orientation_estimator->integrateMeasurement(measurement);
-        }
-        catch(const std::runtime_error& e)
-        {
-            RTT::log(RTT::Error) << "Failed to integrate gyro measurement: " << e.what() << RTT::endlog();
-        }
+        OrientationUKF::RotationRate measurement;
+        measurement.mu = imu_sensor_samples_sample.gyro;
+        measurement.cov = cov_angular_velocity;
+        orientation_estimator->integrateMeasurement(measurement);
     }
-    else
-        RTT::log(RTT::Error) << "Angular velocity measurement contains NaN's, it will be skipped!" << RTT::endlog();
+    catch(const std::runtime_error& e)
+    {
+        RTT::log(RTT::Error) << "Failed to integrate gyro measurement: " << e.what() << RTT::endlog();
+    }
 
-    if(imu_sensor_samples_sample.acc.allFinite())
+    try
     {
-        try
-        {
-            OrientationUKF::Acceleration measurement;
-            measurement.mu = imuInBody.rotation() * imu_sensor_samples_sample.acc;
-            orientation_estimator->integrateMeasurement(measurement);
-        }
-        catch(const std::runtime_error& e)
-        {
-            RTT::log(RTT::Error) << "Failed to integrate acceleration measurement: " << e.what() << RTT::endlog();
-        }
+        OrientationUKF::Acceleration measurement;
+        measurement.mu = imu_sensor_samples_sample.acc;
+        measurement.cov = cov_acceleration;
+        orientation_estimator->integrateMeasurement(measurement);
     }
-    else
-        RTT::log(RTT::Error) << "Acceleration measurement contains NaN's, it will be skipped!" << RTT::endlog();
+    catch(const std::runtime_error& e)
+    {
+        RTT::log(RTT::Error) << "Failed to integrate acceleration measurement: " << e.what() << RTT::endlog();
+    }
+
 }
 
 void OrientationEstimator::velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &velocity_samples_sample)
@@ -76,32 +60,20 @@ void OrientationEstimator::velocity_samplesTransformerCallback(const base::Time 
         new_state = MISSING_TRANSFORMATION;
         return;
     }
-
-    // receive sensor to body transformation
-    Eigen::Affine3d imuInBody;
-    if (!_imu2body.get(ts, imuInBody))
-    {
-        RTT::log(RTT::Error) << "skip, couldn't receive a valid imu-in-body transformation sample!" << RTT::endlog();
-        new_state = MISSING_TRANSFORMATION;
-        return;
-    }
+    Eigen::Affine3d velocityProviderInIMU = imu_in_body.inverse() * velocityProviderInBody;
 
     if(velocity_samples_sample.hasValidVelocity() && velocity_samples_sample.hasValidVelocityCovariance())
     {
-        predictionStep(ts);
         try
         {
             // transform velocity to the imu frame
-            base::Vector3d velocity = velocityProviderInBody.rotation() * velocity_samples_sample.velocity;
-            if(base::isnotnan(current_angular_velocity))
-            {
-                velocity -= current_angular_velocity.cross(velocityProviderInBody.translation() - imuInBody.translation());
-            }
+            base::Vector3d velocity = velocityProviderInIMU.rotation() * velocity_samples_sample.velocity;
+            velocity -= orientation_estimator->getRotationRate().cross(velocityProviderInIMU.translation());
 
             // apply new velocity measurement
             OrientationUKF::VelocityMeasurement measurement;
             measurement.mu = velocity;
-            measurement.cov = velocityProviderInBody.rotation().matrix() * velocity_samples_sample.cov_velocity * velocityProviderInBody.rotation().matrix().transpose();
+            measurement.cov = velocityProviderInIMU.rotation().matrix() * velocity_samples_sample.cov_velocity * velocityProviderInIMU.rotation().matrix().transpose();
             orientation_estimator->integrateMeasurement(measurement);
         }
         catch(const std::runtime_error& e)
@@ -132,6 +104,52 @@ void OrientationEstimator::predictionStep(const base::Time& sample_time)
     }
 }
 
+bool OrientationEstimator::initializeFilter(const Eigen::Quaterniond& orientation, const Eigen::Matrix3d& orientation_cov, const OrientationUKFConfig& filter_config)
+{
+    if(!orientation.matrix().allFinite() || !orientation_cov.allFinite())
+    {
+        LOG_ERROR_S << "Undefined values in initial orientation!";
+        return false;
+    }
+
+    OrientationUKF::State initial_state;
+    initial_state.orientation = RotationType(MTK::SO3<double>(orientation));
+    initial_state.velocity = VelocityType(Eigen::Vector3d::Zero());
+    initial_state.bias_gyro = BiasType(filter_config.rotation_rate.bias_offset);
+    initial_state.bias_acc = BiasType(filter_config.acceleration.bias_offset);
+
+    OrientationUKF::Covariance initial_state_cov = OrientationUKF::Covariance::Zero();
+    initial_state_cov.block(0,0,3,3) = orientation_cov;
+    initial_state_cov.block(3,3,3,3) = Eigen::Matrix3d::Identity(); // velocity is unknown at the start
+    initial_state_cov.block(6,6,3,3) = filter_config.rotation_rate.bias_instability.cwiseAbs2().asDiagonal();
+    initial_state_cov.block(9,9,3,3) = filter_config.acceleration.bias_instability.cwiseAbs2().asDiagonal();
+
+    orientation_estimator.reset(new OrientationUKF(initial_state, initial_state_cov,
+                                  filter_config.rotation_rate.bias_tau, filter_config.acceleration.bias_tau,
+                                  filter_config.location));
+    return true;
+}
+
+bool OrientationEstimator::setProcessNoise(const OrientationUKFConfig& filter_config)
+{
+    if(!filter_config.velocity_diag.allFinite())
+    {
+        LOG_ERROR_S << "Process noise contains non-finite values!";
+        return false;
+    }
+
+    OrientationUKF::Covariance process_noise_cov = OrientationUKF::Covariance::Zero();
+    process_noise_cov.block(0,0,3,3) = filter_config.rotation_rate.randomwalk.cwiseAbs2().asDiagonal();
+    process_noise_cov.block(3,3,3,3) = filter_config.velocity_diag.asDiagonal();
+    process_noise_cov.block(6,6,3,3) = (2. / filter_config.rotation_rate.bias_tau) *
+                                        filter_config.rotation_rate.bias_instability.cwiseAbs2().asDiagonal();
+    process_noise_cov.block(9,9,3,3) = (2. / filter_config.acceleration.bias_tau) *
+                                        filter_config.acceleration.bias_instability.cwiseAbs2().asDiagonal();
+    orientation_estimator->setProcessNoiseCovariance(process_noise_cov);
+
+    return true;
+}
+
 /// The following lines are template definitions for the various state machine
 // hooks defined by Orocos::RTT. See OrientationEstimator.hpp for more detailed
 // documentation about them.
@@ -141,36 +159,47 @@ bool OrientationEstimator::configureHook()
     if (! OrientationEstimatorBase::configureHook())
         return false;
 
-    // setup initial state
-    OrientationUKF::State init_state;
-    OrientationUKF::Covariance init_state_cov = OrientationUKF::Covariance::Zero();
+    // get IMU to body transformation
+    if(!_imu2body.get(base::Time(), imu_in_body))
+    {
+        LOG_ERROR_S << "Failed to get IMU pose in body frame. Note that this has to be a static transformation!";
+        return false;
+    }
+    if(!imu_in_body.linear().isApprox(Eigen::Matrix3d::Identity()))
+    {
+        LOG_ERROR_S << "The IMU frame can't be rotated with respect to the body frame!";
+        LOG_ERROR_S << "This is currently not supported by the filter.";
+        return false;
+    }
+
     // set initial orientation
     Eigen::Vector3d euler = _initial_orientation.value();
     Eigen::Quaterniond orientation = Eigen::AngleAxisd(euler.z(), Eigen::Vector3d::UnitZ()) *
                                      Eigen::AngleAxisd(euler.y(), Eigen::Vector3d::UnitY()) *
                                      Eigen::AngleAxisd(euler.x(), Eigen::Vector3d::UnitX());
-    init_state.orientation = MTK::SO3<double>(orientation);
-    init_state.velocity = VelocityType(Eigen::Vector3d::Zero());
-    init_state.bias_gyro = BiasType(Eigen::Vector3d::Zero());
-    init_state.bias_acc = BiasType(Eigen::Vector3d::Zero());
 
-    // set initial covariance
-    init_state_cov.block(0,0,3,3) = pow(0.02, 2.0) * Eigen::Matrix3d::Identity();
-    init_state_cov.block(3,3,3,3) = pow(0.1, 2.0) * Eigen::Matrix3d::Identity();
-    init_state_cov.block(6,6,3,3) = pow(_filter_config.value().gyro_bias_std, 2.0) * Eigen::Matrix3d::Identity();
-    init_state_cov.block(9,9,3,3) = pow(_filter_config.value().acc_bias_std, 2.0) * Eigen::Matrix3d::Identity();
+    // initialize filter
+    if(!initializeFilter(orientation, _initial_orientation_cov_diag.value().asDiagonal(), _filter_config.value()))
+        return false;
 
-    // instantiate filter
-    orientation_estimator.reset(new pose_estimation::OrientationUKF(init_state, init_state_cov, _filter_config.value()));
+    // set process noise
+    if(!setProcessNoise(_filter_config.value()))
+        return false;
+
     orientation_estimator->setMaxTimeDelta(_max_time_delta.get());
+
+    // compute measurement covariances
+    double sqrt_delta_t = sqrt(_imu_sensor_samples_period.value());
+    Eigen::Vector3d rotation_rate_std = (1./sqrt_delta_t) * _filter_config.value().rotation_rate.randomwalk;
+    Eigen::Vector3d acceleration_std = (1./sqrt_delta_t) * _filter_config.value().acceleration.randomwalk;
+    cov_angular_velocity = rotation_rate_std.cwiseAbs2().asDiagonal();
+    cov_acceleration = acceleration_std.cwiseAbs2().asDiagonal();
 
     // setup stream alignment verifier
     verifier.reset(new pose_estimation::StreamAlignmentVerifier());
     verifier->setVerificationInterval(2.0);
     verifier->setDropRateWarningThreshold(0.5);
     verifier->setDropRateCriticalThreshold(1.0);
-
-    current_angular_velocity = Eigen::Vector3d::Zero();
 
     // Task states
     last_state = PRE_OPERATIONAL;
@@ -186,6 +215,7 @@ bool OrientationEstimator::startHook()
 }
 void OrientationEstimator::updateHook()
 {
+    new_state = RUNNING;
     OrientationEstimatorBase::updateHook();
 
     // check stream alignment status
@@ -205,15 +235,22 @@ void OrientationEstimator::updateHook()
         base::samples::RigidBodyState orientation_sample;
         orientation_sample.orientation = current_state.orientation;
         orientation_sample.velocity = current_state.velocity;
+        orientation_sample.angular_velocity = orientation_estimator->getRotationRate();
         orientation_sample.cov_orientation = current_state_cov.block(0,0,3,3);
         orientation_sample.cov_velocity = current_state_cov.block(3,3,3,3);
+        orientation_sample.cov_angular_velocity = cov_angular_velocity;
         orientation_sample.time = orientation_estimator->getLastMeasurementTime();
         orientation_sample.targetFrame = _target_frame.value();
         orientation_sample.sourceFrame = _body_frame.value();
         _orientation_samples.write(orientation_sample);
 
-        _bias_gyro.write(current_state.bias_gyro);
-        _bias_acc.write(current_state.bias_acc);
+        OrientationUKFSecondaryStates secondary_states;
+        secondary_states.time = orientation_estimator->getLastMeasurementTime();
+        secondary_states.bias_gyro = current_state.bias_gyro;
+        secondary_states.bias_acc = current_state.bias_acc;
+        secondary_states.cov_bias_gyro = current_state_cov.block(6,6,3,3);
+        secondary_states.cov_bias_acc = current_state_cov.block(9,9,3,3);
+        _secondary_states.write(secondary_states);
     }
 
     // write task state if it has changed
