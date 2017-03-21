@@ -130,20 +130,14 @@ bool OrientationEstimator::initializeFilter(const Eigen::Quaterniond& orientatio
     return true;
 }
 
-bool OrientationEstimator::setProcessNoise(const OrientationUKFConfig& filter_config)
+bool OrientationEstimator::setProcessNoise(const OrientationUKFConfig& filter_config, double sensor_delta_t)
 {
-    if(!filter_config.velocity_diag.allFinite())
-    {
-        LOG_ERROR_S << "Process noise contains non-finite values!";
-        return false;
-    }
-
     OrientationUKF::Covariance process_noise_cov = OrientationUKF::Covariance::Zero();
     process_noise_cov.block(0,0,3,3) = filter_config.rotation_rate.randomwalk.cwiseAbs2().asDiagonal();
-    process_noise_cov.block(3,3,3,3) = filter_config.velocity_diag.asDiagonal();
-    process_noise_cov.block(6,6,3,3) = (2. / filter_config.rotation_rate.bias_tau) *
+    process_noise_cov.block(3,3,3,3) = filter_config.acceleration.randomwalk.cwiseAbs2().asDiagonal();
+    process_noise_cov.block(6,6,3,3) = (2. / (filter_config.rotation_rate.bias_tau * sensor_delta_t)) *
                                         filter_config.rotation_rate.bias_instability.cwiseAbs2().asDiagonal();
-    process_noise_cov.block(9,9,3,3) = (2. / filter_config.acceleration.bias_tau) *
+    process_noise_cov.block(9,9,3,3) = (2. / (filter_config.acceleration.bias_tau * sensor_delta_t)) *
                                         filter_config.acceleration.bias_instability.cwiseAbs2().asDiagonal();
     orientation_estimator->setProcessNoiseCovariance(process_noise_cov);
 
@@ -183,7 +177,7 @@ bool OrientationEstimator::configureHook()
         return false;
 
     // set process noise
-    if(!setProcessNoise(_filter_config.value()))
+    if(!setProcessNoise(_filter_config.value(), _imu_sensor_samples_period.value()))
         return false;
 
     orientation_estimator->setMaxTimeDelta(_max_time_delta.get());
@@ -241,7 +235,7 @@ void OrientationEstimator::updateHook()
         orientation_sample.cov_angular_velocity = cov_angular_velocity;
         orientation_sample.time = orientation_estimator->getLastMeasurementTime();
         orientation_sample.targetFrame = _target_frame.value();
-        orientation_sample.sourceFrame = _body_frame.value();
+        orientation_sample.sourceFrame = _imu_frame.value();
         _orientation_samples.write(orientation_sample);
 
         OrientationUKFSecondaryStates secondary_states;

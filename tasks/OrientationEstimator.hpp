@@ -53,7 +53,7 @@ namespace pose_estimation {
 
         bool initializeFilter(const Eigen::Quaterniond& orientation, const Eigen::Matrix3d& orientation_cov, const OrientationUKFConfig& filter_config);
 
-        bool setProcessNoise(const OrientationUKFConfig& filter_config);
+        bool setProcessNoise(const OrientationUKFConfig& filter_config, double sensor_delta_t);
 
     public:
         /** TaskContext constructor for OrientationEstimator

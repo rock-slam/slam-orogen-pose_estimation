@@ -35,11 +35,6 @@ filter_config:
        - 6.79574e-07
        - 4.50008e-07
     bias_tau: 600.0
-  velocity_diag:
-    data:
-    - 0.0625
-    - 0.0625
-    - 0.0625
   location: # RIC Bremen
     latitude: 0.92698121
     longitude: 0.154595663
