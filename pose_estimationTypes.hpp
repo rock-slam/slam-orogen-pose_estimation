@@ -30,6 +30,8 @@ struct OrientationUKFSecondaryStates
     base::Matrix3d cov_bias_gyro;
     base::Vector3d bias_acc;
     base::Matrix3d cov_bias_acc;
+    double gravity;
+    double var_gravity;
 };
 
 namespace deprecated
