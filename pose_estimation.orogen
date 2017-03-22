@@ -116,6 +116,8 @@ task_context "UWPoseEstimator" do
 	max_latency(0.1)
     end
 
+    find_property('transformer_max_latency').dynamic
+
     periodic 0.01
 end
 
