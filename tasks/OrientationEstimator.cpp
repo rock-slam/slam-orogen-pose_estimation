@@ -115,7 +115,7 @@ bool OrientationEstimator::initializeFilter(const Eigen::Quaterniond& orientatio
         return false;
     }
 
-    OrientationUKF::State initial_state;
+    FilterState initial_state;
     initial_state.orientation = RotationType(MTK::SO3<double>(orientation));
     initial_state.velocity = VelocityType(Eigen::Vector3d::Zero());
     initial_state.bias_gyro = BiasType(filter_config.rotation_rate.bias_offset);
@@ -128,11 +128,13 @@ bool OrientationEstimator::initializeFilter(const Eigen::Quaterniond& orientatio
     initial_state.latitude = LatitudeType(latitude);
 
     OrientationUKF::Covariance initial_state_cov = OrientationUKF::Covariance::Zero();
-    initial_state_cov.block(0,0,3,3) = orientation_cov;
-    initial_state_cov.block(3,3,3,3) = Eigen::Matrix3d::Identity(); // velocity is unknown at the start
-    initial_state_cov.block(6,6,3,3) = filter_config.rotation_rate.bias_instability.cwiseAbs2().asDiagonal();
-    initial_state_cov.block(9,9,3,3) = filter_config.acceleration.bias_instability.cwiseAbs2().asDiagonal();
-    initial_state_cov(12,12) = pow(0.05, 2.); // give the gravity model a sigma of 5 cm/s^2 at the start
+    MTK::subblock(initial_state_cov, &FilterState::orientation) = orientation_cov;
+    MTK::subblock(initial_state_cov, &FilterState::velocity) = Eigen::Matrix3d::Identity(); // velocity is unknown at the start
+    MTK::subblock(initial_state_cov, &FilterState::bias_gyro) = filter_config.rotation_rate.bias_instability.cwiseAbs2().asDiagonal();
+    MTK::subblock(initial_state_cov, &FilterState::bias_acc) = filter_config.acceleration.bias_instability.cwiseAbs2().asDiagonal();
+    Eigen::Matrix<double, 1, 1> gravity_var;
+    gravity_var << pow(0.05, 2.); // give the gravity model a sigma of 5 cm/s^2 at the start
+    MTK::subblock(initial_state_cov, &FilterState::gravity) = gravity_var;
     Eigen::Matrix<double, 1, 1> latitude_var;
     latitude_var << pow(atan2(50.0, pose_estimation::EQUATORIAL_RADIUS), 2.); // sigma of 50 m on earth surface
     MTK::subblock(initial_state_cov, &FilterState::latitude) = latitude_var;
@@ -145,13 +147,15 @@ bool OrientationEstimator::initializeFilter(const Eigen::Quaterniond& orientatio
 bool OrientationEstimator::setProcessNoise(const OrientationUKFConfig& filter_config, double sensor_delta_t)
 {
     OrientationUKF::Covariance process_noise_cov = OrientationUKF::Covariance::Zero();
-    process_noise_cov.block(0,0,3,3) = filter_config.rotation_rate.randomwalk.cwiseAbs2().asDiagonal();
-    process_noise_cov.block(3,3,3,3) = filter_config.acceleration.randomwalk.cwiseAbs2().asDiagonal();
-    process_noise_cov.block(6,6,3,3) = (2. / (filter_config.rotation_rate.bias_tau * sensor_delta_t)) *
+    MTK::subblock(process_noise_cov, &FilterState::orientation) = filter_config.rotation_rate.randomwalk.cwiseAbs2().asDiagonal();
+    MTK::subblock(process_noise_cov, &FilterState::velocity) = filter_config.acceleration.randomwalk.cwiseAbs2().asDiagonal();
+    MTK::subblock(process_noise_cov, &FilterState::bias_gyro) = (2. / (filter_config.rotation_rate.bias_tau * sensor_delta_t)) *
                                         filter_config.rotation_rate.bias_instability.cwiseAbs2().asDiagonal();
-    process_noise_cov.block(9,9,3,3) = (2. / (filter_config.acceleration.bias_tau * sensor_delta_t)) *
+    MTK::subblock(process_noise_cov, &FilterState::bias_acc) = (2. / (filter_config.acceleration.bias_tau * sensor_delta_t)) *
                                         filter_config.acceleration.bias_instability.cwiseAbs2().asDiagonal();
-    process_noise_cov(12,12) = 1.e-12; // add a tiny bit of noise only for numeric stability
+    Eigen::Matrix<double, 1, 1> gravity_noise;
+    gravity_noise << 1.e-12; // add a tiny bit of noise only for numeric stability
+    MTK::subblock(process_noise_cov, &FilterState::gravity) = gravity_noise;
     Eigen::Matrix<double, 1, 1> latitude_noise;
     latitude_noise << pow(atan2(1.0, pose_estimation::EQUATORIAL_RADIUS), 2.); // 1m/s on earth surface
     MTK::subblock(process_noise_cov, &FilterState::latitude) = latitude_noise;
@@ -246,8 +250,8 @@ void OrientationEstimator::updateHook()
         orientation_sample.orientation = current_state.orientation;
         orientation_sample.velocity = current_state.velocity;
         orientation_sample.angular_velocity = orientation_estimator->getRotationRate();
-        orientation_sample.cov_orientation = current_state_cov.block(0,0,3,3);
-        orientation_sample.cov_velocity = current_state_cov.block(3,3,3,3);
+        orientation_sample.cov_orientation = MTK::subblock(current_state_cov, &FilterState::orientation);
+        orientation_sample.cov_velocity = MTK::subblock(current_state_cov, &FilterState::velocity);
         orientation_sample.cov_angular_velocity = cov_angular_velocity;
         orientation_sample.time = orientation_estimator->getLastMeasurementTime();
         orientation_sample.targetFrame = _target_frame.value();
@@ -260,9 +264,9 @@ void OrientationEstimator::updateHook()
         secondary_states.bias_acc = current_state.bias_acc;
         secondary_states.gravity = current_state.gravity(0);
         secondary_states.latitude = current_state.latitude(0);
-        secondary_states.cov_bias_gyro = current_state_cov.block(6,6,3,3);
-        secondary_states.cov_bias_acc = current_state_cov.block(9,9,3,3);
-        secondary_states.var_gravity = current_state_cov(12,12);
+        secondary_states.cov_bias_gyro = MTK::subblock(current_state_cov, &FilterState::bias_gyro);
+        secondary_states.cov_bias_acc = MTK::subblock(current_state_cov, &FilterState::bias_acc);
+        secondary_states.var_gravity = MTK::subblock(current_state_cov, &FilterState::gravity)(0);
         secondary_states.var_latitude = MTK::subblock(current_state_cov, &FilterState::latitude)(0);
         _secondary_states.write(secondary_states);
     }
