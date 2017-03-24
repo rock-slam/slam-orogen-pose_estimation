@@ -36,7 +36,7 @@ void OrientationEstimator::imu_sensor_samplesTransformerCallback(const base::Tim
     }
     catch(const std::runtime_error& e)
     {
-        RTT::log(RTT::Error) << "Failed to integrate gyro measurement: " << e.what() << RTT::endlog();
+        LOG_ERROR_S << "Failed to integrate gyro measurement: " << e.what();
     }
 
     try
@@ -48,7 +48,7 @@ void OrientationEstimator::imu_sensor_samplesTransformerCallback(const base::Tim
     }
     catch(const std::runtime_error& e)
     {
-        RTT::log(RTT::Error) << "Failed to integrate acceleration measurement: " << e.what() << RTT::endlog();
+        LOG_ERROR_S << "Failed to integrate acceleration measurement: " << e.what();
     }
 
 }
@@ -59,7 +59,7 @@ void OrientationEstimator::velocity_samplesTransformerCallback(const base::Time 
     Eigen::Affine3d velocityProviderInBody;
     if (!_velocity_provider2body.get(ts, velocityProviderInBody))
     {
-        RTT::log(RTT::Error) << "skip, couldn't receive a valid velocity_provider-in-body transformation sample!" << RTT::endlog();
+        LOG_ERROR_S << "skip, couldn't receive a valid velocity_provider-in-body transformation sample!";
         new_state = MISSING_TRANSFORMATION;
         return;
     }
@@ -81,11 +81,11 @@ void OrientationEstimator::velocity_samplesTransformerCallback(const base::Time 
         }
         catch(const std::runtime_error& e)
         {
-            RTT::log(RTT::Error) << "Failed to add DVL measurement: " << e.what() << RTT::endlog();
+            LOG_ERROR_S << "Failed to add DVL measurement: " << e.what();
         }
     }
     else
-        RTT::log(RTT::Info) << "Velocity measurement contains NaN's, it will be skipped!" << RTT::endlog();
+        LOG_ERROR_S << "Velocity measurement contains NaN's, it will be skipped!";
 }
 
 bool OrientationEstimator::addHeadingOffset(double heading_offset, double variance)
@@ -117,8 +117,8 @@ void OrientationEstimator::predictionStep(const base::Time& sample_time)
     }
     catch(const std::runtime_error& e)
     {
-        RTT::log(RTT::Error) << "Failed to execute prediction step: " << e.what() << RTT::endlog();
-        RTT::log(RTT::Error) << "Skipping prediction step." << RTT::endlog();
+        LOG_ERROR_S << "Failed to execute prediction step: " << e.what();
+        LOG_ERROR_S << "Skipping prediction step.";
     }
 }
 
