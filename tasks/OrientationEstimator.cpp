@@ -254,7 +254,7 @@ void OrientationEstimator::updateHook()
     if(streams_with_alignment_failures > 0)
         new_state = TRANSFORMATION_ALIGNMENT_FAILURES;
     if(streams_with_critical_alignment_failures > 0)
-        error(CRITICAL_ALIGNMENT_FAILURE);
+        exception(CRITICAL_ALIGNMENT_FAILURE);
 
     // write out estimated orientation
     OrientationUKF::State current_state;
