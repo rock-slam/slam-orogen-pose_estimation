@@ -135,7 +135,7 @@ void RBSFilter::verifyStreamAlignerStatus(const aggregator::StreamAlignerStatus&
     if(aligner_stream_failures > 0)
 	 new_state = TRANSFORMATION_ALIGNMENT_FAILURES;
     if(critical_aligner_stream_failures > 0)
-        error(CRITICAL_ALIGNMENT_FAILURE);
+        exception(CRITICAL_ALIGNMENT_FAILURE);
 }
 
 bool RBSFilter::getSensorInBodyPose(const transformer::Transformation& sensor2body_transformer, const base::Time& ts, Eigen::Affine3d& sensorInBody)

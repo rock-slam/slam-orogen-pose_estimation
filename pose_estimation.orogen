@@ -45,7 +45,7 @@ task_context "RBSFilter" do
     #******** Task States ********* 
     #******************************
     runtime_states :MISSING_TRANSFORMATION, :TRANSFORMATION_ALIGNMENT_FAILURES
-    error_states :CRITICAL_ALIGNMENT_FAILURE
+    exception_states :CRITICAL_ALIGNMENT_FAILURE
 
     periodic 0.01
 end
