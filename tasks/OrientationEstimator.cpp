@@ -88,10 +88,25 @@ void OrientationEstimator::velocity_samplesTransformerCallback(const base::Time 
         RTT::log(RTT::Info) << "Velocity measurement contains NaN's, it will be skipped!" << RTT::endlog();
 }
 
-bool OrientationEstimator::resetHeading(double heading)
+bool OrientationEstimator::addHeadingOffset(double heading_offset, double variance)
 {
-    // TODO impl
-    return false;
+    OrientationUKF::State current_state;
+    OrientationUKF::Covariance current_state_cov;
+    if(!orientation_estimator->getCurrentState(current_state, current_state_cov))
+    {
+        LOG_ERROR_S << "Failed to get current state from filter!";
+        return false;
+    }
+
+    Eigen::Vector3d euler = current_state.orientation.matrix().eulerAngles(2,1,0);
+    Eigen::Quaterniond orientation = Eigen::AngleAxisd(euler[0] + heading_offset, Eigen::Vector3d::UnitZ()) *
+                                     Eigen::AngleAxisd(euler[1], Eigen::Vector3d::UnitY()) *
+                                     Eigen::AngleAxisd(euler[2], Eigen::Vector3d::UnitX());
+    Eigen::Matrix3d orientation_cov = Eigen::Matrix3d::Zero();
+    orientation_cov.topLeftCorner<2,2>() = current_state_cov.topLeftCorner<2,2>();
+    orientation_cov(2,2) = variance;
+
+    return initializeFilter(orientation, orientation_cov, _filter_config.value());
 }
 
 void OrientationEstimator::predictionStep(const base::Time& sample_time)

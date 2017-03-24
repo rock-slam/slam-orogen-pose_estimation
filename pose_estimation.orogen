@@ -64,10 +64,13 @@ task_context "OrientationEstimator" do
     #******************************
     #********* Operations *********
     #******************************
-    # resets the current heading, optimally to the true north
-    operation('resetHeading').
-        argument('heading', 'double', 'heading').
-        returns('bool')
+    # Add an offset to the current heading and reinitialize the filter.
+    #
+    # This is commonly used to align the heading estimate to the true north.
+    operation('addHeadingOffset').
+        returns('bool').
+        argument('heading_offset', 'double', 'heading_offset').
+        argument('variance', 'double', 'Initial variance of the new heading state in (rad/s)^2')
 
     #******************************
     #******** Task States *********

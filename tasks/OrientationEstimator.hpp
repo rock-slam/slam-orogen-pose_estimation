@@ -42,9 +42,10 @@ namespace pose_estimation {
         virtual void imu_sensor_samplesTransformerCallback(const base::Time &ts, const ::base::samples::IMUSensors &imu_sensor_samples_sample);
         virtual void velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &velocity_samples_sample);
 
-        /** resets the current heading, optimally to the true north
+        /** Add an offset to the current heading and reinitialize the filter.
+         * This is commonly used to align the heading estimate to the true north.
          */
-        virtual bool resetHeading(double heading);
+        virtual bool addHeadingOffset(double heading_offset, double variance);
 
         /** Applies a prediction step of the filter with a given current sample time.
          * The delta time step is the difference between the last sample time and the current one.
