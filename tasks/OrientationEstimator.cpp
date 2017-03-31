@@ -2,7 +2,7 @@
 
 #include "OrientationEstimator.hpp"
 #include "pose_estimationTypes.hpp"
-#include <pose_estimation/GravityModel.hpp>
+#include <pose_estimation/GravitationalModel.hpp>
 
 using namespace pose_estimation;
 
@@ -136,7 +136,7 @@ bool OrientationEstimator::initializeFilter(const Eigen::Quaterniond& orientatio
     initial_state.bias_gyro = BiasType(filter_config.rotation_rate.bias_offset);
     initial_state.bias_acc = BiasType(filter_config.acceleration.bias_offset);
     Eigen::Matrix<double, 1, 1> gravity;
-    gravity(0) = pose_estimation::GravityModel(filter_config.location.latitude, filter_config.location.altitude);
+    gravity(0) = pose_estimation::GravitationalModel::WGS_84(filter_config.location.latitude, filter_config.location.altitude);
     initial_state.gravity = GravityType(gravity);
     Eigen::Matrix<double, 1, 1> latitude;
     latitude(0) = filter_config.location.latitude;
