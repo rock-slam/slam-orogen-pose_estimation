@@ -105,19 +105,21 @@ void UWPoseEstimator::lbl_position_samplesTransformerCallback(const base::Time &
     if (!getSensorInBodyPose(_lbl2body, ts, sensorInBody))
         return;
 
-    if(lbl_position_samples_sample.hasValidPosition() && lbl_position_samples_sample.hasValidPositionCovariance())
+    PoseUKF::State current_state;
+    if(lbl_position_samples_sample.hasValidPosition() &&
+        lbl_position_samples_sample.hasValidPositionCovariance() &&
+        pose_estimator->getCurrentState(current_state)
+    )
     {
         predictionStep(ts);
         try
         {
             // apply sensorInBody transformation to measurement
-            Eigen::Affine3d modemInWorld = Eigen::Affine3d::Identity();
-            modemInWorld.translation() = lbl_position_samples_sample.position;
-            Eigen::Affine3d bodyInWorld = modemInWorld * sensorInBody.inverse();
+            Eigen::Vector3d bodyInWorld = lbl_position_samples_sample.position - current_state.orientation * sensorInBody.translation();
 
             PoseUKF::PositionMeasurement measurement;
-            measurement.mu = bodyInWorld.translation();
-            measurement.cov = sensorInBody.rotation() * lbl_position_samples_sample.cov_position * sensorInBody.rotation().transpose();
+            measurement.mu = bodyInWorld;
+            measurement.cov = lbl_position_samples_sample.cov_position;
             pose_estimator->integrateMeasurement(measurement);
         }
         catch(const std::runtime_error& e)
@@ -213,22 +215,20 @@ void UWPoseEstimator::gps_position_samplesTransformerCallback(const base::Time &
     if (!getSensorInBodyPose(_gps2body, ts, sensorInBody))
         return;
 
-    if(gps_position_samples_sample.position.block(0,0,2,1).allFinite() && gps_position_samples_sample.cov_position.block(0,0,2,2).allFinite())
+    PoseUKF::State current_state;
+    if(gps_position_samples_sample.position.block(0,0,2,1).allFinite() &&
+        gps_position_samples_sample.cov_position.block(0,0,2,2).allFinite() &&
+        pose_estimator->getCurrentState(current_state))
     {
         predictionStep(ts);
         try
         {
             // apply sensorInBody transformation to measurement
-            Eigen::Affine3d gpsInWorld = Eigen::Affine3d::Identity();
-            gpsInWorld.translation() = Eigen::Vector3d(gps_position_samples_sample.position.x(), gps_position_samples_sample.position.y(), 0.0);
-            Eigen::Affine3d bodyInWorld = gpsInWorld * sensorInBody.inverse();
-
-            Eigen::Quaterniond rotation(sensorInBody.rotation());
-            Eigen::Matrix2d yaw_rot = Eigen::Rotation2Dd(base::getYaw(rotation)).toRotationMatrix();
+            Eigen::Vector3d bodyInWorld = gps_position_samples_sample.position - current_state.orientation * sensorInBody.translation();
 
             PoseUKF::XYMeasurement measurement;
-            measurement.mu = bodyInWorld.translation().block(0,0,2,1);
-            measurement.cov = yaw_rot * gps_position_samples_sample.cov_position.block(0,0,2,2) * yaw_rot.transpose();
+            measurement.mu = bodyInWorld.block(0,0,2,1);
+            measurement.cov = gps_position_samples_sample.cov_position.block(0,0,2,2);
             pose_estimator->integrateMeasurement(measurement);
         }
         catch(const std::runtime_error& e)
