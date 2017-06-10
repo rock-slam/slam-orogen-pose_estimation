@@ -59,6 +59,8 @@ task_context "UWPoseEstimator" do
     subclasses "RBSFilter"
     needs_configuration
 
+    property( "use_velocity_bias", "bool", true)
+
     #******************************
     #******* Input Ports **********
     #******************************

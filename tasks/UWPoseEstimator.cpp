@@ -176,7 +176,7 @@ void UWPoseEstimator::dvl_velocity_samplesTransformerCallback(const base::Time &
             PoseUKF::VelocityMeasurement measurement;
             measurement.mu = velocity;
             measurement.cov = sensorInBody.rotation() * dvl_velocity_samples_sample.cov_velocity * sensorInBody.rotation().transpose();
-            pose_estimator->integrateMeasurement(measurement);
+            pose_estimator->integrateMeasurement(measurement, _use_velocity_bias.value());
         }
         catch(const std::runtime_error& e)
         {
