@@ -47,6 +47,12 @@ void RBSFilter::writeCurrentState()
         body_state.sourceFrame = source_frame;
         _pose_samples.write(body_state);
         last_sample_time = current_sample_time;
+
+        pose_estimation::PoseUKFSecondaryStates secondary_states;
+        secondary_states.time = current_sample_time;
+        secondary_states.velocity_bias = filter_state.velocity_bias;
+        secondary_states.cov_velocity_bias = MTK::subblock(filter_state_cov, &PoseUKF::State::velocity_bias).diagonal();
+        _secondary_states.write(secondary_states);
     }
     
     // write task state if it has changed
@@ -67,6 +73,7 @@ bool RBSFilter::setupFilter()
     init_rbs.cov_velocity = 0.1 * base::Matrix3d::Identity();
     init_rbs.cov_angular_velocity = 0.05 * base::Matrix3d::Identity();
 
+    const ProcessNoise& process_noise = _process_noise.value();
     base::samples::RigidBodyState override_init_state = _initial_state.value();
     if(override_init_state.hasValidPosition())
         init_rbs.position = override_init_state.position;
@@ -89,10 +96,13 @@ bool RBSFilter::setupFilter()
     PoseUKF::State init_state;
     PoseUKF::Covariance init_state_cov;
     BodyStateMeasurement::fromRigidBodyState(init_rbs, init_state, init_state_cov);
-    pose_estimator.reset(new PoseUKF(init_state, init_state_cov));
+
+    init_state.velocity_bias = VelocityBiasType(MTK::vect<3, double>::Zero());
+    MTK::subblock(init_state_cov, &PoseUKF::State::velocity_bias) = process_noise.velocity_bias_instability.cwiseAbs2().asDiagonal();
+
+    pose_estimator.reset(new PoseUKF(init_state, init_state_cov, _velocity_bias_config.value()));
     
     // setup process noise
-    const ProcessNoise& process_noise = _process_noise.value();
     PoseUKF::Covariance process_noise_cov = PoseUKF::Covariance::Zero();
 
     if(base::isnotnan(process_noise.position_noise))
@@ -111,6 +121,8 @@ bool RBSFilter::setupFilter()
         process_noise_cov.block(9,9,3,3) = process_noise.angular_velocity_noise;
     else
         process_noise_cov.block(9,9,3,3) = 0.0001 * base::Matrix3d::Identity();
+
+    MTK::subblock(process_noise_cov, &PoseUKF::State::velocity_bias) = process_noise.velocity_bias_instability.cwiseAbs2().asDiagonal();
 
     pose_estimator->setProcessNoiseCovariance(process_noise_cov);
     

@@ -5,6 +5,7 @@ using_library "pose_estimation"
 
 import_types_from "base"
 import_types_from "pose_estimationTypes.hpp"
+import_types_from "pose_estimation/pose_with_velocity/PoseUKFConfig.hpp"
 
 task_context "RBSFilter" do
     abstract
@@ -24,6 +25,8 @@ task_context "RBSFilter" do
     property( "process_noise", "/pose_estimation/ProcessNoise" ).
         doc("Filter process noise, NaN values will be ignored and set to a healthy but likely overconfident value.")
     
+    # Configuration of the velocity bias
+    property( "velocity_bias_config", "/pose_estimation/VelocityBiasConfig" )
     
     property( 'target_frame', '/std/string', 'world' ).
     	doc "The target frame in the generated poses. The source frame is the body frame (as declared in the transformer configuration)"
@@ -33,6 +36,8 @@ task_context "RBSFilter" do
     #******************************
     output_port( "pose_samples", "/base/samples/RigidBodyState" ).
         doc "timestamped samples of the current estimated pose of the robot."
+
+    output_port( "secondary_states", "/pose_estimation/PoseUKFSecondaryStates" )
 
     #******************************
     #********* Operations *********
