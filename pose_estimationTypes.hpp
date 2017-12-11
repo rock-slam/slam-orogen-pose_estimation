@@ -32,8 +32,6 @@ struct OrientationUKFSecondaryStates
     base::Matrix3d cov_bias_acc;
     double gravity;
     double var_gravity;
-    double latitude;
-    double var_latitude;
 };
 
 namespace deprecated
