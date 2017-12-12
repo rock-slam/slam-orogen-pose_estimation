@@ -178,6 +178,12 @@ bool OrientationEstimator::configureHook()
 {
     if (! OrientationEstimatorBase::configureHook())
         return false;
+    return true;
+}
+bool OrientationEstimator::startHook()
+{
+    if (! OrientationEstimatorBase::startHook())
+        return false;
 
     // get IMU to body transformation
     Eigen::Affine3d imu_in_body;
@@ -223,12 +229,6 @@ bool OrientationEstimator::configureHook()
     last_state = PRE_OPERATIONAL;
     new_state = RUNNING;
 
-    return true;
-}
-bool OrientationEstimator::startHook()
-{
-    if (! OrientationEstimatorBase::startHook())
-        return false;
     return true;
 }
 void OrientationEstimator::updateHook()
