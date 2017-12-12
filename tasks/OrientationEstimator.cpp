@@ -50,6 +50,25 @@ void OrientationEstimator::imu_sensor_samplesTransformerCallback(const base::Tim
     {
         LOG_ERROR_S << "Failed to integrate acceleration measurement: " << e.what();
     }
+
+    // integrate zero velocity measurement with a sigma of max velocity in order to constrain the velocity
+    if(velocity_unknown)
+    {
+        try
+        {
+            OrientationUKF::VelocityMeasurement measurement;
+            measurement.mu = Eigen::Vector3d::Zero();
+            measurement.cov = cov_velocity_unknown;
+
+            orientation_estimator->integrateMeasurement(measurement);
+        }
+        catch(const std::runtime_error& e)
+        {
+            LOG_ERROR_S << "Failed to integrate zero velocity measurement: " << e.what();
+        }
+    }
+    else if((ts - last_velocity_sample_time).toSeconds() > (_velocity_samples_period.value() * 3.0))
+        velocity_unknown = true;
 }
 
 void OrientationEstimator::velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &velocity_samples_sample)
@@ -68,6 +87,10 @@ void OrientationEstimator::velocity_samplesTransformerCallback(const base::Time 
     {
         try
         {
+            // if this is not set, zero velocity updates in the IMU sample callback are integrated
+            velocity_unknown = false;
+            last_velocity_sample_time = ts;
+
             // transform velocity to the imu frame
             base::Vector3d velocity = velocityProviderInIMU.rotation() * velocity_samples_sample.velocity;
             velocity -= orientation_estimator->getRotationRate().cross(velocityProviderInIMU.translation());
@@ -218,6 +241,7 @@ bool OrientationEstimator::startHook()
     Eigen::Vector3d acceleration_std = (1./sqrt_delta_t) * _filter_config.value().acceleration.randomwalk;
     cov_angular_velocity = imu_in_body_rotation.matrix() * rotation_rate_std.cwiseAbs2().asDiagonal() * imu_in_body_rotation.matrix().transpose();
     cov_acceleration = imu_in_body_rotation.matrix() * acceleration_std.cwiseAbs2().asDiagonal() * imu_in_body_rotation.matrix().transpose();
+    cov_velocity_unknown = (1./_imu_sensor_samples_period.value()) * (_filter_config.value().max_velocity.cwiseAbs2()).asDiagonal();
 
     // setup stream alignment verifier
     verifier.reset(new pose_estimation::StreamAlignmentVerifier());
@@ -225,9 +249,11 @@ bool OrientationEstimator::startHook()
     verifier->setDropRateWarningThreshold(0.5);
     verifier->setDropRateCriticalThreshold(1.0);
 
-    // Task states
+    // reset state machine related members
     last_state = PRE_OPERATIONAL;
     new_state = RUNNING;
+    velocity_unknown = false;
+    last_velocity_sample_time = base::Time();
 
     return true;
 }

@@ -36,6 +36,9 @@ namespace pose_estimation {
         Eigen::Quaterniond imu_in_body_rotation;
         Eigen::Matrix3d cov_angular_velocity;
         Eigen::Matrix3d cov_acceleration;
+        Eigen::Matrix3d cov_velocity_unknown;
+        base::Time last_velocity_sample_time;
+        bool velocity_unknown;
         States last_state;
         States new_state;
 
