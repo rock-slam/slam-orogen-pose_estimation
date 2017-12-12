@@ -30,7 +30,7 @@ void OrientationEstimator::imu_sensor_samplesTransformerCallback(const base::Tim
     try
     {
         OrientationUKF::RotationRate measurement;
-        measurement.mu = imu_sensor_samples_sample.gyro;
+        measurement.mu = imu_in_body_rotation * imu_sensor_samples_sample.gyro;
         measurement.cov = cov_angular_velocity;
         orientation_estimator->integrateMeasurement(measurement);
     }
@@ -42,7 +42,7 @@ void OrientationEstimator::imu_sensor_samplesTransformerCallback(const base::Tim
     try
     {
         OrientationUKF::Acceleration measurement;
-        measurement.mu = imu_sensor_samples_sample.acc;
+        measurement.mu = imu_in_body_rotation * imu_sensor_samples_sample.acc;
         measurement.cov = cov_acceleration;
         orientation_estimator->integrateMeasurement(measurement);
     }
@@ -50,7 +50,6 @@ void OrientationEstimator::imu_sensor_samplesTransformerCallback(const base::Tim
     {
         LOG_ERROR_S << "Failed to integrate acceleration measurement: " << e.what();
     }
-
 }
 
 void OrientationEstimator::velocity_samplesTransformerCallback(const base::Time &ts, const ::base::samples::RigidBodyState &velocity_samples_sample)
@@ -63,7 +62,7 @@ void OrientationEstimator::velocity_samplesTransformerCallback(const base::Time 
         new_state = MISSING_TRANSFORMATION;
         return;
     }
-    Eigen::Affine3d velocityProviderInIMU = imu_in_body.inverse() * velocityProviderInBody;
+    Eigen::Affine3d velocityProviderInIMU = imu_in_body_translation.inverse() * velocityProviderInBody;
 
     if(velocity_samples_sample.hasValidVelocity() && velocity_samples_sample.hasValidVelocityCovariance())
     {
@@ -133,8 +132,8 @@ bool OrientationEstimator::initializeFilter(const Eigen::Quaterniond& orientatio
     FilterState initial_state;
     initial_state.orientation = RotationType(MTK::SO3<double>(orientation));
     initial_state.velocity = VelocityType(Eigen::Vector3d::Zero());
-    initial_state.bias_gyro = BiasType(filter_config.rotation_rate.bias_offset);
-    initial_state.bias_acc = BiasType(filter_config.acceleration.bias_offset);
+    initial_state.bias_gyro = BiasType(imu_in_body_rotation * filter_config.rotation_rate.bias_offset);
+    initial_state.bias_acc = BiasType(imu_in_body_rotation * filter_config.acceleration.bias_offset);
     Eigen::Matrix<double, 1, 1> gravity;
     gravity(0) = pose_estimation::GravitationalModel::WGS_84(filter_config.location.latitude, filter_config.location.altitude);
     initial_state.gravity = GravityType(gravity);
@@ -142,8 +141,8 @@ bool OrientationEstimator::initializeFilter(const Eigen::Quaterniond& orientatio
     OrientationUKF::Covariance initial_state_cov = OrientationUKF::Covariance::Zero();
     MTK::subblock(initial_state_cov, &FilterState::orientation) = orientation_cov;
     MTK::subblock(initial_state_cov, &FilterState::velocity) = Eigen::Matrix3d::Identity(); // velocity is unknown at the start
-    MTK::subblock(initial_state_cov, &FilterState::bias_gyro) = filter_config.rotation_rate.bias_instability.cwiseAbs2().asDiagonal();
-    MTK::subblock(initial_state_cov, &FilterState::bias_acc) = filter_config.acceleration.bias_instability.cwiseAbs2().asDiagonal();
+    MTK::subblock(initial_state_cov, &FilterState::bias_gyro) = imu_in_body_rotation.matrix() * filter_config.rotation_rate.bias_instability.cwiseAbs2().asDiagonal() * imu_in_body_rotation.matrix().transpose();
+    MTK::subblock(initial_state_cov, &FilterState::bias_acc) = imu_in_body_rotation.matrix() * filter_config.acceleration.bias_instability.cwiseAbs2().asDiagonal() * imu_in_body_rotation.matrix().transpose();
     Eigen::Matrix<double, 1, 1> gravity_var;
     gravity_var << pow(0.05, 2.); // give the gravity model a sigma of 5 cm/s^2 at the start
     MTK::subblock(initial_state_cov, &FilterState::gravity) = gravity_var;
@@ -157,12 +156,12 @@ bool OrientationEstimator::initializeFilter(const Eigen::Quaterniond& orientatio
 bool OrientationEstimator::setProcessNoise(const OrientationUKFConfig& filter_config, double sensor_delta_t)
 {
     OrientationUKF::Covariance process_noise_cov = OrientationUKF::Covariance::Zero();
-    MTK::subblock(process_noise_cov, &FilterState::orientation) = filter_config.rotation_rate.randomwalk.cwiseAbs2().asDiagonal();
-    MTK::subblock(process_noise_cov, &FilterState::velocity) = filter_config.acceleration.randomwalk.cwiseAbs2().asDiagonal();
+    MTK::subblock(process_noise_cov, &FilterState::orientation) = imu_in_body_rotation.matrix() * filter_config.rotation_rate.randomwalk.cwiseAbs2().asDiagonal() * imu_in_body_rotation.matrix().transpose();
+    MTK::subblock(process_noise_cov, &FilterState::velocity) = imu_in_body_rotation.matrix() * filter_config.acceleration.randomwalk.cwiseAbs2().asDiagonal() * imu_in_body_rotation.matrix().transpose();
     MTK::subblock(process_noise_cov, &FilterState::bias_gyro) = (2. / (filter_config.rotation_rate.bias_tau * sensor_delta_t)) *
-                                        filter_config.rotation_rate.bias_instability.cwiseAbs2().asDiagonal();
+                                        imu_in_body_rotation.matrix() * filter_config.rotation_rate.bias_instability.cwiseAbs2().asDiagonal() * imu_in_body_rotation.matrix().transpose();
     MTK::subblock(process_noise_cov, &FilterState::bias_acc) = (2. / (filter_config.acceleration.bias_tau * sensor_delta_t)) *
-                                        filter_config.acceleration.bias_instability.cwiseAbs2().asDiagonal();
+                                        imu_in_body_rotation.matrix() * filter_config.acceleration.bias_instability.cwiseAbs2().asDiagonal() * imu_in_body_rotation.matrix().transpose();
     Eigen::Matrix<double, 1, 1> gravity_noise;
     gravity_noise << 1.e-12; // add a tiny bit of noise only for numeric stability
     MTK::subblock(process_noise_cov, &FilterState::gravity) = gravity_noise;
@@ -181,17 +180,15 @@ bool OrientationEstimator::configureHook()
         return false;
 
     // get IMU to body transformation
+    Eigen::Affine3d imu_in_body;
     if(!_imu2body.get(base::Time(), imu_in_body))
     {
         LOG_ERROR_S << "Failed to get IMU pose in body frame. Note that this has to be a static transformation!";
         return false;
     }
-    if(!imu_in_body.linear().isApprox(Eigen::Matrix3d::Identity()))
-    {
-        LOG_ERROR_S << "The IMU frame can't be rotated with respect to the body frame!";
-        LOG_ERROR_S << "This is currently not supported by the filter.";
-        return false;
-    }
+    imu_in_body_translation = Eigen::Affine3d::Identity();
+    imu_in_body_translation.translation() = imu_in_body.translation();
+    imu_in_body_rotation = imu_in_body.rotation();
 
     // set initial orientation
     Eigen::Vector3d euler = _initial_orientation.value();
@@ -213,8 +210,8 @@ bool OrientationEstimator::configureHook()
     double sqrt_delta_t = sqrt(_imu_sensor_samples_period.value());
     Eigen::Vector3d rotation_rate_std = (1./sqrt_delta_t) * _filter_config.value().rotation_rate.randomwalk;
     Eigen::Vector3d acceleration_std = (1./sqrt_delta_t) * _filter_config.value().acceleration.randomwalk;
-    cov_angular_velocity = rotation_rate_std.cwiseAbs2().asDiagonal();
-    cov_acceleration = acceleration_std.cwiseAbs2().asDiagonal();
+    cov_angular_velocity = imu_in_body_rotation.matrix() * rotation_rate_std.cwiseAbs2().asDiagonal() * imu_in_body_rotation.matrix().transpose();
+    cov_acceleration = imu_in_body_rotation.matrix() * acceleration_std.cwiseAbs2().asDiagonal() * imu_in_body_rotation.matrix().transpose();
 
     // setup stream alignment verifier
     verifier.reset(new pose_estimation::StreamAlignmentVerifier());

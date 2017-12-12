@@ -32,7 +32,8 @@ namespace pose_estimation {
     protected:
         boost::shared_ptr<pose_estimation::OrientationUKF> orientation_estimator;
         boost::shared_ptr<pose_estimation::StreamAlignmentVerifier> verifier;
-        Eigen::Affine3d imu_in_body;
+        Eigen::Affine3d imu_in_body_translation;
+        Eigen::Quaterniond imu_in_body_rotation;
         Eigen::Matrix3d cov_angular_velocity;
         Eigen::Matrix3d cov_acceleration;
         States last_state;
