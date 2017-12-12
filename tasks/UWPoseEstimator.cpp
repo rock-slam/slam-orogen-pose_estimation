@@ -46,14 +46,17 @@ void UWPoseEstimator::depth_samplesTransformerCallback(const base::Time &ts, con
     if (!getSensorInBodyPose(_pressure_sensor2body, ts, sensorInBody))
         return;
 
-    if(!base::isNaN(depth_samples_sample.position.z()) && !base::isNaN(depth_samples_sample.cov_position(2,2)))
+    PoseUKF::State current_state;
+    if(!base::isNaN(depth_samples_sample.position.z()) &&
+        !base::isNaN(depth_samples_sample.cov_position(2,2)) &&
+        pose_estimator->getCurrentState(current_state))
     {
         predictionStep(ts);
         try
         {
             // apply sensorInBody transformation to measurement
             Eigen::Matrix<double, 1, 1> depth;
-            depth << depth_samples_sample.position.z() - sensorInBody.translation().z();
+            depth << depth_samples_sample.position.z() - (current_state.orientation * sensorInBody.translation()).z();
 
             PoseUKF::ZMeasurement measurement;
             measurement.mu = depth;
