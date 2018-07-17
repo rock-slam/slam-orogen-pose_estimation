@@ -264,3 +264,71 @@ task_context "VehiclePoseEstimator" do
 
     periodic 0.01
 end
+
+# This component allows to find a initial heading based on the ability of the IMU
+# to measure the rotation of the earth.
+# It utilizes multiple orientation filters with different initial headings and
+# writes out their average heading after they converge to a close result.
+task_context "OrientationInitialization" do
+    needs_configuration
+
+    #******************************
+    #***** Filter Properties ******
+    #******************************
+    # Maximum time delta of a prediction step
+    property( "max_time_delta", "double", 2.0 )
+
+    # The initial orientation in euler angles
+    property( "initial_orientation", "/base/Vector3d" )
+
+    # The initial covariance diagonal
+    property( "initial_orientation_cov_diag", "/base/Vector3d" )
+
+    # Filter configuration
+    property( "filter_config", "/pose_estimation/OrientationUKFConfig" )
+
+    # The target frame in the generated poses. The source frame is the body frame (as declared in the transformer configuration)
+    property( 'target_frame', '/std/string', 'world' )
+
+    # Convergence threshold as yaw angle difference
+    property( "convergence_threshold", "double", 0.0174 )
+
+    #******************************
+    #******* Input Ports **********
+    #******************************
+    # Velocity samples
+    input_port( "velocity_samples", "/base/samples/RigidBodyState" ).
+            needs_reliable_connection
+
+    # IMU acceleration and angular velocity samples
+    input_port('imu_sensor_samples', '/base/samples/IMUSensors').
+            needs_reliable_connection
+
+    #******************************
+    #******* Output Ports *********
+    #******************************
+    # Timestamped samples of the current estimated orientation of the robot.
+    output_port( "orientation_samples", "/base/samples/RigidBodyState" )
+
+    #******************************
+    #** Aggregator Parameters *****
+    #******************************
+    transformer do
+        transformation("imu", "body")
+        transformation("velocity_provider", "body")
+
+        align_port("velocity_samples", 0.1)
+        align_port("imu_sensor_samples", 0.01)
+
+        max_latency(0.05)
+    end
+
+    #******************************
+    #******** Task States *********
+    #******************************
+    runtime_states :MISSING_TRANSFORMATION, :TRANSFORMATION_ALIGNMENT_FAILURES,
+                   :INITIALIZATION_COMPLETE, :INITIALIZATION
+    exception_states :CRITICAL_ALIGNMENT_FAILURE
+
+    periodic 0.01
+end
