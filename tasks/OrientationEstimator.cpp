@@ -283,13 +283,13 @@ void OrientationEstimator::updateHook()
         orientation_sample.cov_orientation = MTK::subblock(current_state_cov, &FilterState::orientation);
         orientation_sample.cov_velocity = MTK::subblock(current_state_cov, &FilterState::velocity);
         orientation_sample.cov_angular_velocity = cov_angular_velocity;
-        orientation_sample.time = orientation_estimator->getLastMeasurementTime();
+        orientation_sample.time = base::Time::fromMicroseconds(orientation_estimator->getLastMeasurementTime());
         orientation_sample.targetFrame = _target_frame.value();
         orientation_sample.sourceFrame = _imu_frame.value();
         _orientation_samples.write(orientation_sample);
 
         OrientationUKFSecondaryStates secondary_states;
-        secondary_states.time = orientation_estimator->getLastMeasurementTime();
+        secondary_states.time = base::Time::fromMicroseconds(orientation_estimator->getLastMeasurementTime());
         secondary_states.bias_gyro = current_state.bias_gyro;
         secondary_states.bias_acc = current_state.bias_acc;
         secondary_states.gravity = current_state.gravity(0);

@@ -37,7 +37,7 @@ void RBSFilter::writeCurrentState()
     // write estimated body state
     PoseUKF::State filter_state;
     PoseUKF::Covariance filter_state_cov;
-    base::Time current_sample_time = pose_estimator->getLastMeasurementTime();
+    base::Time current_sample_time = base::Time::fromMicroseconds(pose_estimator->getLastMeasurementTime());
     if(current_sample_time > last_sample_time && pose_estimator->getCurrentState(filter_state, filter_state_cov))
     {
         base::samples::RigidBodyState body_state;

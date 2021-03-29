@@ -298,7 +298,7 @@ void OrientationInitialization::updateHook()
         base::samples::RigidBodyState orientation_sample;
         orientation_sample.orientation = average_orientation;
         orientation_sample.cov_orientation = std::pow(2.0 * _convergence_threshold.value(), 2.0) * Eigen::Matrix3d::Identity();
-        orientation_sample.time = orientation_estimators[0]->getLastMeasurementTime();
+        orientation_sample.time = base::Time::fromMicroseconds(orientation_estimators[0]->getLastMeasurementTime());
         orientation_sample.targetFrame = _target_frame.value();
         orientation_sample.sourceFrame = _imu_frame.value();
         _orientation_samples.write(orientation_sample);
